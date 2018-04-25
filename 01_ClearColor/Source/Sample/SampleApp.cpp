@@ -9,7 +9,7 @@
 
 SampleApp::SampleApp(IApp* pApp)
     : m_pApp(pApp)
-    , m_BufferCount(1)
+    , m_BufferCount(2)
     , m_BufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM)
     , m_FeatureLevel(D3D_FEATURE_LEVEL_11_1)
 {
@@ -99,10 +99,10 @@ bool SampleApp::Init()
         swapChainDesc.BufferDesc.RefreshRate.Numerator = 60;
         swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
         swapChainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-        swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+        swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_CENTERED;
         swapChainDesc.BufferDesc.Format = m_BufferFormat;
         swapChainDesc.SampleDesc = sampleDesc;
-        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+        swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT;
         swapChainDesc.BufferCount = m_BufferCount;
         swapChainDesc.Windowed = TRUE;
         swapChainDesc.OutputWindow = hWnd;
