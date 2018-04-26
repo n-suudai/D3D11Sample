@@ -1,0 +1,6 @@
+[submodule "External/glm"]
+	path = External/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "External/lodepng"]
+	path = External/lodepng
+	url = https://github.com/lvandeve/lodepng.git
