@@ -88,7 +88,7 @@ KEY_CODE ToKeyCode(WPARAM wParam)
 
 AppWin::AppWin()
 {
-
+    InitLocale();
 }
 
 
