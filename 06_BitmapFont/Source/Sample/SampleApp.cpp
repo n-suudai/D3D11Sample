@@ -570,180 +570,67 @@ bool SampleApp::CreateBackBuffer(const Size2D& newSize)
 // シェーダーを作成
 bool SampleApp::CreateShader(const std::string& vertexShader, const std::string& pixelShader)
 {
-    ResultUtil result;
+    bool result = Util::CreateVertexShaderAndInputLayout(
+        m_Device,
+        vertexShader,
+        Vertex::pInputElementDescs,
+        Vertex::InputElementCount,
+        m_VertexShader,
+        m_InputLayout
+    );
+    if (!result) { return false; }
 
-    // VertexShader
-    {
-        std::vector<BYTE> vertexShaderData;
-
-        if (!ReadFile(vertexShader, vertexShaderData))
-        {
-            return false;
-        }
-
-        result = m_Device->CreateVertexShader(
-            vertexShaderData.data(),
-            vertexShaderData.size(),
-            nullptr,
-            &m_VertexShader
-        );
-        if (!result)
-        {
-            ShowErrorMessage(result, "m_Device->CreateVertexShader");
-            return false;
-        }
-
-        // InputLayout
-        {
-            result = m_Device->CreateInputLayout(
-                Vertex::pInputElementDescs,
-                Vertex::InputElementCount,
-                vertexShaderData.data(),
-                vertexShaderData.size(),
-                &m_InputLayout
-            );
-            if (!result)
-            {
-                ShowErrorMessage(result, "m_Device->CreateInputLayout");
-                return false;
-            }
-        }
-    }
-
-    // PixelShader
-    {
-        std::vector<BYTE> pixelShaderData;
-
-        if (!ReadFile(pixelShader, pixelShaderData))
-        {
-            return false;
-        }
-
-        result = m_Device->CreatePixelShader(
-            pixelShaderData.data(),
-            pixelShaderData.size(),
-            nullptr,
-            &m_PixelShader
-        );
-        if (!result)
-        {
-            ShowErrorMessage(result, "m_Device->CreatePixelShader");
-            return false;
-        }
-    }
-
-    return true;
+    return Util::CreatePixelShader(
+        m_Device,
+        pixelShader,
+        m_PixelShader
+    );
 }
 
 // 頂点バッファを作成
 bool SampleApp::CreateVertexBuffer(const void* pVertices, UINT byteWidth)
 {
-    // バッファの設定
-    CD3D11_BUFFER_DESC bufferDesc(
+    return Util::CreateBuffer(
+        m_Device,
+        pVertices,
         byteWidth,
-        D3D11_BIND_VERTEX_BUFFER
+        D3D11_BIND_VERTEX_BUFFER,
+        m_VertexBuffer
     );
-
-    // サブリソースの設定
-    D3D11_SUBRESOURCE_DATA subresourceData;
-    ZeroMemory(&subresourceData, sizeof(subresourceData));
-
-    subresourceData.pSysMem = pVertices;
-    subresourceData.SysMemPitch = 0;
-    subresourceData.SysMemSlicePitch = 0;
-
-    ResultUtil result = m_Device->CreateBuffer(
-        &bufferDesc,
-        &subresourceData,
-        &m_VertexBuffer
-    );
-    if (!result)
-    {
-        ShowErrorMessage(result, "m_Device->CreateBuffer");
-        return false;
-    }
-
-    return true;
 }
 
 // インデックスバッファを作成
 bool SampleApp::CreateIndexBuffer(const void* pIndices, UINT byteWidth)
 {
-    // バッファの設定
-    CD3D11_BUFFER_DESC bufferDesc(
+    return Util::CreateBuffer(
+        m_Device,
+        pIndices,
         byteWidth,
-        D3D11_BIND_INDEX_BUFFER
+        D3D11_BIND_INDEX_BUFFER,
+        m_IndexBuffer
     );
-
-    // サブリソースの設定
-    D3D11_SUBRESOURCE_DATA subresourceData;
-    ZeroMemory(&subresourceData, sizeof(subresourceData));
-
-    subresourceData.pSysMem = pIndices;
-    subresourceData.SysMemPitch = 0;
-    subresourceData.SysMemSlicePitch = 0;
-
-    ResultUtil result = m_Device->CreateBuffer(
-        &bufferDesc,
-        &subresourceData,
-        &m_IndexBuffer
-    );
-    if (!result)
-    {
-        ShowErrorMessage(result, "m_Device->CreateBuffer");
-        return false;
-    }
-
-    return true;
 }
 
 // 定数バッファを作成
 bool SampleApp::CreateConstantBuffer(const void* pInitData, UINT byteWidth)
 {
-    // バッファの設定
-    CD3D11_BUFFER_DESC bufferDesc(
+    return Util::CreateBuffer(
+        m_Device,
+        pInitData,
         byteWidth,
-        D3D11_BIND_CONSTANT_BUFFER
+        D3D11_BIND_CONSTANT_BUFFER,
+        m_IndexBuffer
     );
-
-    // サブリソースの設定
-    D3D11_SUBRESOURCE_DATA subresourceData;
-    ZeroMemory(&subresourceData, sizeof(subresourceData));
-
-    subresourceData.pSysMem = pInitData;
-    subresourceData.SysMemPitch = 0;
-    subresourceData.SysMemSlicePitch = 0;
-
-    ResultUtil result = m_Device->CreateBuffer(
-        &bufferDesc,
-        &subresourceData,
-        &m_ConstantBuffer
-    );
-    if (!result)
-    {
-        ShowErrorMessage(result, "m_Device->CreateBuffer");
-        return false;
-    }
-
-    return true;
 }
 
 // ラスタライザーステートを作成
 bool SampleApp::CreateRasterizerState()
 {
-    CD3D11_RASTERIZER_DESC rasterizerDesc(D3D11_DEFAULT);
-    rasterizerDesc.CullMode = D3D11_CULL_BACK;
-
-    ResultUtil result = m_Device->CreateRasterizerState(
-        &rasterizerDesc,
-        &m_RasterizerState
+    return Util::CreateRasterizerState(
+        m_Device,
+        D3D11_CULL_BACK,
+        m_RasterizerState
     );
-    if (!result)
-    {
-        ShowErrorMessage(result, "m_Device->CreateRasterizerState");
-        return false;
-    }
-    return true;
 }
 
 // 深度ステンシルステートを作成
@@ -767,96 +654,31 @@ bool SampleApp::CreateDepthStencilState()
 // サンプラーステートを作成
 bool SampleApp::CreateSamplerState()
 {
-    FLOAT borderColor[4] = { 0.0f };
-    CD3D11_SAMPLER_DESC samplerDesc(
-        D3D11_FILTER_ANISOTROPIC,       // サンプリング時に使用するフィルタ。ここでは異方性フィルターを使用する
-        D3D11_TEXTURE_ADDRESS_WRAP,     // 0 ～ 1 の範囲外にある u テクスチャー座標の描画方法
-        D3D11_TEXTURE_ADDRESS_WRAP,     // 0 ～ 1 の範囲外にある v テクスチャー座標
-        D3D11_TEXTURE_ADDRESS_WRAP,     // 0 ～ 1 の範囲外にある w テクスチャー座標
-        0,                              // 計算されたミップマップ レベルからのバイアス
-        16,                             // サンプリングに異方性補間を使用している場合の限界値。有効な値は 1 ～ 16 
-        D3D11_COMPARISON_ALWAYS,        // 比較オプション
-        borderColor,                    // 境界色
-        0,                              // アクセス可能なミップマップの下限値
-        D3D11_FLOAT32_MAX               // アクセス可能なミップマップの上限値
+    return Util::CreateSamplerState(
+        m_Device,
+        D3D11_FILTER_ANISOTROPIC,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        m_SamplerState
     );
-
-    ResultUtil result = m_Device->CreateSamplerState(
-        &samplerDesc,
-        &m_SamplerState
-    );
-    if (!result)
-    {
-        ShowErrorMessage(result, "m_Device->CreateSamplerState");
-        return false;
-    }
-    return true;
 }
 
 // テクスチャを生成
 bool SampleApp::CreateTextureFromFile(const std::string& fileName)
 {
-    std::vector<unsigned char> image;
-    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    Size2D size = { 0 };
-
-    // PNG 読み込み
-    if (!LoadPng(fileName, image, format, size))
-    {
-        return false;
-    }
-
-    void* pImage = &image[0];
-    CD3D11_TEXTURE2D_DESC texture2DDesc(
-        format,
-        static_cast<UINT>(size.width),
-        static_cast<UINT>(size.height),
-        1,
-        1,
-        D3D11_BIND_SHADER_RESOURCE
-    );
-
-    D3D11_SUBRESOURCE_DATA subresourceData;
-    ZeroMemory(&subresourceData, sizeof(subresourceData));
-
-    subresourceData.pSysMem = pImage;
-    subresourceData.SysMemPitch = DXGIFormatSystemPitch(format, static_cast<UINT>(size.width));
-    subresourceData.SysMemSlicePitch = static_cast<UINT>(image.size());
-
-    // テクスチャを生成
-    ResultUtil result = m_Device->CreateTexture2D(
-        &texture2DDesc,
-        &subresourceData,
-        &m_Texture2D
+    ResultUtil result = Util::CreateTextureFromFile(
+        m_Device,
+        fileName,
+        m_Texture2D,
+        m_ShaderResourceView
     );
     if (!result)
     {
-        ShowErrorMessage(result, "m_Device->CreateTexture2D");
+        ShowErrorMessage(result, "Util::CreateTextureFromFile");
         return false;
     }
 
-
-    // シェーダーリソースビューを生成
-    {
-        CD3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc(
-            D3D11_SRV_DIMENSION_TEXTURE2D,
-            format,
-            0,
-            texture2DDesc.MipLevels
-        );
-
-        // シェーダーリソースビューを生成
-        result = m_Device->CreateShaderResourceView(
-            m_Texture2D.Get(),
-            &shaderResourceViewDesc,
-            &m_ShaderResourceView
-        );
-        if (!result)
-        {
-            ShowErrorMessage(result, "m_Device->CreateShaderResourceView");
-            return false;
-        }
-    }
     return true;
 }
 
@@ -865,30 +687,13 @@ bool SampleApp::ReadFile(const std::string& fileName, std::vector<BYTE>& out)
 {
     out.clear();
 
-    std::ifstream file(fileName, std::ios::binary);
+    ResultUtil result = Util::ReadFile(fileName, out);
 
-    ResultUtil result = ResultUtil(!file.fail(), "open " + fileName + " is failed.");
     if (!result)
     {
-        ShowErrorMessage(result, "!file.fail()");
+        ShowErrorMessage(result, "Util::ReadFile");
         return false;
     }
-
-    file.unsetf(std::ios::skipws);
-
-    std::streampos fileSize;
-
-    file.seekg(0, std::ios::end);
-    fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    out.reserve(fileSize);
-
-    out.insert(
-        out.begin(),
-        std::istream_iterator<BYTE>(file),
-        std::istream_iterator<BYTE>()
-    );
 
     return true;
 }
@@ -896,42 +701,13 @@ bool SampleApp::ReadFile(const std::string& fileName, std::vector<BYTE>& out)
 // PNG ファイルの読み込み
 bool SampleApp::LoadPng(const std::string& fileName, std::vector<BYTE>& image, DXGI_FORMAT& format, Size2D& size)
 {
-    std::vector<BYTE> png;
-    if (!ReadFile(fileName, png))
-    {
-        return false;
-    }
-
-    LodePNGColorType cType = (LodePNGColorType)png[25];
-    LodePNGColorType cOutType = LCT_RGBA;
-
-    format = DXGI_FORMAT_R8G8B8A8_UNORM;
-
-    switch (cType)
-    {
-    case LCT_GREY:
-        format = DXGI_FORMAT_R8_UNORM;
-        cOutType = cType;
-        break;
-    case LCT_GREY_ALPHA:
-        format = DXGI_FORMAT_A8_UNORM;
-        cOutType = cType;
-        break;
-    case LCT_RGB:
-        format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        cOutType = LCT_RGBA;
-        break;
-    default:
-        break;
-    }
-
-    unsigned int error = lodepng::decode(image, size.width, size.height, png, cOutType);
-    ResultUtil result = ResultUtil(error == 0, lodepng_error_text(error));
+    ResultUtil result = Util::LoadPng(fileName, image, format, size);
     if (!result)
     {
-        ShowErrorMessage(result, "lodepng::decode");
+        ShowErrorMessage(result, "Util::LoadPng");
         return false;
     }
+
     return true;
 }
 

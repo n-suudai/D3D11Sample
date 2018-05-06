@@ -19,6 +19,7 @@
     <ClCompile Include="Source\Sample\SampleApp.cpp" />
     <ClCompile Include="Source\Sample\ResultUtil.cpp" />
     <ClCompile Include="Source\Sample\lodepngBuild.cpp" />
+    <ClCompile Include="Source\Sample\Font\BitmapFont.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resource\Shader\VertexShader.hlsl" />

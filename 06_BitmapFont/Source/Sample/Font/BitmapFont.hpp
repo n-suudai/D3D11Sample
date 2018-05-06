@@ -2,19 +2,19 @@
 
 
 
-struct Padding
+struct FontPadding
 {
-    uint32_t up;
-    uint32_t down;
-    uint32_t right;
-    uint32_t left;
+    u16 up;
+    u16 down;
+    u16 right;
+    u16 left;
 };
 
 
-struct Spacing
+struct FontSpacing
 {
-    uint32_t horizontal;
-    uint32_t vertical;
+    u16 horizontal;
+    u16 vertical;
 };
 
 
@@ -30,14 +30,14 @@ struct FontInfo
     u16         stretchH;   // The font height stretch in percentage. 100% means no stretch.
     u8          smooth;     // Set to 1 if smoothing was turned on.
     u8          aa;         // The supersampling level used. 1 means no supersampling was used.
-    Padding     padding;    // The padding for each character (up, right, down, left).
-    Spacing     spacing;    // The spacing for each character (horizontal, vertical).
+    FontPadding padding;    // The padding for each character (up, right, down, left).
+    FontSpacing spacing;    // The spacing for each character (horizontal, vertical).
     u16         outline;    // The outline thickness for the characters.
 };
 
 
 // This tag holds information common to all characters.
-struct FontCommonInfo
+struct FontCommon
 {
     u16 lineHeight;    // This is the distance in pixels between each line of text.
     u16 base;          // The number of pixels from the absolute top of the line to the base of the characters.
@@ -61,7 +61,7 @@ struct FontPage
 
 
 // This tag describes on character in the font. There is one for each included character in the font.
-struct Char
+struct FontCharacter
 {
     u16 id;        // The character id.
     u16 x;         // The left position of the character image in the texture.
@@ -78,7 +78,7 @@ struct Char
 
 // The kerning information is used to adjust the distance between certain characters,
 // e.g. some characters should be placed closer to each other than others.
-struct Kerning
+struct FontKerning
 {
     u16 first;     // The first character id.
     u16 second;    // The second character id.
@@ -86,13 +86,19 @@ struct Kerning
 };
 
 
+enum
+{
+    FONT_DATA_CHARACTER_SIZE = 0x10000
+};
+
+
 struct FontData
 {
-    FontInfo              info;
-    FontCommonInfo        common;
-    std::vector<FontPage> pages;
-    Char                  chars[65535];
-    std::vector<Kerning>  kernings;
+    FontInfo                    info;
+    FontCommon                  common;
+    std::vector<FontPage>       pages;
+    FontCharacter               chars[FONT_DATA_CHARACTER_SIZE];
+    std::vector<FontKerning>    kernings;
 };
 
 
@@ -123,9 +129,16 @@ struct Vertex_BitmapFont
 class BitmapFont
 {
 public:
-    BitmapFont();
+    BitmapFont(
+        const ComPtr<ID3D11Device>& device,
+        const ComPtr<ID3D11DeviceContext> context
+    );
 
     ~BitmapFont();
+
+    void FileLoad(const std::string& fileName, FontData& out);
+
+    void Initialize(const std::string& fileName);
 
     void PutFormat(const glm::vec2& position, const char* pFormat, ...);
 
@@ -146,40 +159,42 @@ public:
     void Flush();
 
 protected:
+    void PutVertex();
+
+
     struct Texture
     {
-        ComPtr<ID3D11ShaderResourceView> m_ShaderResourceView;
-        ComPtr<ID3D11Texture2D>          m_Texture2D;
+        ComPtr<ID3D11ShaderResourceView> ShaderResourceView;
+        ComPtr<ID3D11Texture2D>          Texture2D;
     };
 
+    ComPtr<ID3D11Device>                m_Device;           // デバイス
+    ComPtr<ID3D11DeviceContext>         m_Context;          // デバイスコンテキスト
     std::vector<Texture>                m_Textures;         // テクスチャ
     ComPtr<ID3D11Buffer>                m_VertexBuffer;     // 頂点バッファー
     ComPtr<ID3D11Buffer>                m_IndexBuffer;      // インデックスバッファー
     std::unique_ptr<Vertex_BitmapFont>  m_VertexStream;     // CPU側頂点バッファー      m_BufferSize * 4 頂点
     ComPtr<ID3D11VertexShader>          m_VertexShader;     // 頂点シェーダー
     ComPtr<ID3D11PixelShader>           m_PixelShader;      // ピクセルシェーダー
+    ComPtr<ID3D11InputLayout>           m_InputLayout;      // 入力レイアウト
     ComPtr<ID3D11SamplerState>          m_SamplerState;     // フォント描画用サンプラー
     ComPtr<ID3D11RasterizerState>       m_RasterizerState;  // ラスタライザーステート
 
+    FontData    m_Data;
     bool        m_UpdateBufferRq;   // バッファー更新リクエスト
-    int         m_BufferSize;       // 描画最大文字数
-    int         m_Count;            // 表示文字数
-    const Char* m_pFontParam;       // フォントデータ
-    float       m_CharSpacing;      // 横文字間
-    float       m_LineSpacing;      // 縦文字間
-
+    u32         m_BufferSize;       // 描画最大文字数
+    u32         m_Count;            // 表示文字数
+    f32         m_CharSpacing;      // 横文字間
+    f32         m_LineSpacing;      // 縦文字間
     glm::vec4   m_RectDrawArea;     // 描画領域
-    
-    float       m_LocationX;        // 現在文字位置
-    float       m_LocationY;        // 現在文字位置
-    float       m_FontHeight;       // フォントの縦描画サイズ
-
+    f32         m_Location_x;       // 現在文字位置
+    f32         m_Location_y;       // 現在文字位置
+    f32         m_FontHeight;       // フォントの縦描画サイズ
     glm::vec2   m_SizePerPix;       // 1ピクセルあたりのUV値
     glm::vec4   m_Color;            // 描画乗算色(全体)
     glm::vec4   m_CurrentColor;     // 現在の文字色
     glm::mat4x4 m_Projection;       // プロジェクション行列
     glm::vec4   m_RectMargin;       // 矩形マージン
-
 };
 
 

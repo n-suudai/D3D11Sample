@@ -57,6 +57,7 @@ using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 #include <cstdint>
 #include <string>
+#include <sstream>
 #include <memory>
 #include <vector>
 #include <fstream>
@@ -91,4 +92,5 @@ typedef double f64;
 #include "Sample/SampleApp.hpp"
 #include "Sample/Vertex.hpp"
 #include "Sample/Utility.hpp"
+#include "Sample/Font/BitmapFont.hpp"
 
