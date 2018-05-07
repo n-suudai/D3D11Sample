@@ -201,13 +201,13 @@ bool SampleApp::Init()
     }
 
     // 頂点バッファを生成
-    if (!CreateVertexBuffer(g_vertices, sizeof(g_vertices)))
+    if (!CreateVertexBuffer(g_vertices, sizeof(g_vertices), sizeof(g_vertices[0])))
     {
         return false;
     }
 
     // インデックスバッファを生成
-    if (!CreateIndexBuffer(g_indices, sizeof(g_indices)))
+    if (!CreateIndexBuffer(g_indices, sizeof(g_indices), sizeof(g_indices[0])))
     {
         return false;
     }
@@ -241,6 +241,27 @@ bool SampleApp::Init()
         return false;
     }
 
+    // ビットマップフォントを生成
+    {
+        glm::mat4x4 projection = glm::orthoLH(
+            0.0f,
+            static_cast<f32>(clientSize.width),
+            static_cast<f32>(clientSize.height),
+            0.0f,
+            0.0f,
+            1.0f
+        );
+        projection = glm::transpose(projection);
+
+        m_BitmapFont = std::make_unique<BitmapFont>(
+                m_Device,
+                m_Context,
+                projection
+            );
+    }
+
+    m_BitmapFont->Initialize("Meiryo");
+
     return true;
 }
 
@@ -253,10 +274,12 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
+    m_BitmapFont->Put(glm::vec2(0.5f, 0.5f), "テキスト");
+
     // ワールド変換行列を設定
     {
         static f32 rot = 0.0f;
-        rot += 0.0001f;
+        //rot += 0.0001f;
 
         g_ConstantBufferData.World = glm::rotate(
             glm::mat4x4(1.0f),
@@ -368,11 +391,19 @@ void SampleApp::Render()
     // ラスタライザーステートを設定
     m_Context->RSSetState(m_RasterizerState.Get());
 
+    // ブレンドステートを設定
+    m_Context->OMSetBlendState(nullptr, nullptr, 0);
+
     // 深度ステンシルステートを設定
     m_Context->OMSetDepthStencilState(m_DepthStencilState.Get(), 0);
 
     // 描画
     m_Context->DrawIndexed(_countof(g_indices), 0, 0);
+
+
+    // ビットマップフォント描画
+    m_BitmapFont->Flush();
+
 
     // 結果をウインドウに反映
     ResultUtil result = m_SwapChain->Present(0, 0);
@@ -588,25 +619,27 @@ bool SampleApp::CreateShader(const std::string& vertexShader, const std::string&
 }
 
 // 頂点バッファを作成
-bool SampleApp::CreateVertexBuffer(const void* pVertices, UINT byteWidth)
+bool SampleApp::CreateVertexBuffer(const void* pVertices, UINT byteWidth, UINT stride)
 {
     return Util::CreateBuffer(
         m_Device,
         pVertices,
         byteWidth,
         D3D11_BIND_VERTEX_BUFFER,
+        stride,
         m_VertexBuffer
     );
 }
 
 // インデックスバッファを作成
-bool SampleApp::CreateIndexBuffer(const void* pIndices, UINT byteWidth)
+bool SampleApp::CreateIndexBuffer(const void* pIndices, UINT byteWidth, UINT stride)
 {
     return Util::CreateBuffer(
         m_Device,
         pIndices,
         byteWidth,
         D3D11_BIND_INDEX_BUFFER,
+        stride,
         m_IndexBuffer
     );
 }
@@ -619,7 +652,8 @@ bool SampleApp::CreateConstantBuffer(const void* pInitData, UINT byteWidth)
         pInitData,
         byteWidth,
         D3D11_BIND_CONSTANT_BUFFER,
-        m_IndexBuffer
+        byteWidth,
+        m_ConstantBuffer
     );
 }
 
@@ -629,6 +663,7 @@ bool SampleApp::CreateRasterizerState()
     return Util::CreateRasterizerState(
         m_Device,
         D3D11_CULL_BACK,
+        TRUE,
         m_RasterizerState
     );
 }
@@ -638,6 +673,7 @@ bool SampleApp::CreateDepthStencilState()
 {
     // 深度ステンシルステートを作成する
     CD3D11_DEPTH_STENCIL_DESC depthStencilDesc(D3D11_DEFAULT);
+    depthStencilDesc.DepthFunc = D3D11_COMPARISON_ALWAYS;
 
     ResultUtil result = m_Device->CreateDepthStencilState(
         &depthStencilDesc,

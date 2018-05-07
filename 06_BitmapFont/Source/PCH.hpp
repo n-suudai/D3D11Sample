@@ -9,8 +9,10 @@
 //-----------------------------------------------------------------
 #pragma warning(push)
 #pragma warning(disable:4201) 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/color_space.hpp>
 #pragma warning(pop)
 
 #include "lodepng/lodepng.h"
@@ -89,8 +91,8 @@ typedef double f64;
 #include "App.hpp"
 #include "AppWin.hpp"
 #include "Sample/ResultUtil.hpp"
-#include "Sample/SampleApp.hpp"
 #include "Sample/Vertex.hpp"
-#include "Sample/Utility.hpp"
 #include "Sample/Font/BitmapFont.hpp"
+#include "Sample/SampleApp.hpp"
+#include "Sample/Utility.hpp"
 

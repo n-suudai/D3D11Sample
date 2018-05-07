@@ -9,17 +9,33 @@ std::string GetValueStr(const std::string& line, const std::string& name)
     if (pos == std::string::npos) { return ""; }
 
     size_t valueFirst = line.find('=', pos + size);
+    valueFirst += 1;
     size_t valueEnd = line.find(' ', valueFirst);
 
-    return line.substr(valueFirst, valueEnd - valueFirst);
+    std::string result = "";
+
+    if (valueFirst < valueEnd)
+    {
+        result = line.substr(valueFirst, valueEnd - valueFirst);
+    }
+
+    // ダブルクォーテーションを取り除く
+    for (size_t c = result.find_first_of('\"'); c != std::string::npos; c = result.find_first_of('\"'))
+    {
+        result.erase(c, 1);
+    }
+
+    return result;
 }
 
 template<class T>
-T GetValue(const std::string& valueStr, T notFound = T())
+T ToValue(const std::string& valueStr, T notFound = T())
 {
     if (valueStr == "") { return notFound; }
 
-    std::istringstream iss = valueStr;
+    std::istringstream iss;
+
+    iss.str(valueStr);
 
     T value;
 
@@ -31,7 +47,7 @@ T GetValue(const std::string& valueStr, T notFound = T())
 template<class T>
 T GetValue(const std::string& line, const std::string& name, T notFound = T())
 {
-    return GetValue<T>(GetValueStr(line, name), notFound);
+    return ToValue<T>(GetValueStr(line, name), notFound);
 }
 
 
@@ -45,22 +61,22 @@ FontPadding GetPadding(const std::string& line, const std::string& name)
     size_t last = 0;
 
     // up
-    last = valueStr.find_first_not_of(',', first);
-    padding.up = GetValue<u16>(valueStr.substr(first, last - first));
+    last = valueStr.find_first_of(',', first);
+    padding.up = ToValue<u16>(valueStr.substr(first, last - first), 0);
     first = last + 1;
 
     // down
-    last = valueStr.find_first_not_of(',', first);
-    padding.down = GetValue<u16>(valueStr.substr(first, last - first));
+    last = valueStr.find_first_of(',', first);
+    padding.down = ToValue<u16>(valueStr.substr(first, last - first), 0);
     first = last + 1;
 
     // right
-    last = valueStr.find_first_not_of(',', first);
-    padding.right = GetValue<u16>(valueStr.substr(first, last - first));
+    last = valueStr.find_first_of(',', first);
+    padding.right = ToValue<u16>(valueStr.substr(first, last - first), 0);
     first = last + 1;
 
     // left
-    padding.left = GetValue<u16>(valueStr.substr(first, valueStr.size() - first));
+    padding.left = ToValue<u16>(valueStr.substr(first, valueStr.size() - first), 0);
 
     return padding;
 }
@@ -76,12 +92,12 @@ FontSpacing GetSpacing(const std::string& line, const std::string& name)
     size_t last = 0;
 
     // horizontal
-    last = valueStr.find_first_not_of(',', first);
-    spacing.horizontal = GetValue<u16>(valueStr.substr(first, last - first));
+    last = valueStr.find_first_of(',', first);
+    spacing.horizontal = ToValue<u16>(valueStr.substr(first, last - first), 0);
     first = last + 1;
 
     // vertical
-    spacing.vertical = GetValue<u16>(valueStr.substr(first, valueStr.size() - first));
+    spacing.vertical = ToValue<u16>(valueStr.substr(first, valueStr.size() - first), 0);
 
     return spacing;
 }
@@ -89,12 +105,17 @@ FontSpacing GetSpacing(const std::string& line, const std::string& name)
 
 BitmapFont::BitmapFont(
     const ComPtr<ID3D11Device>& device,
-    const ComPtr<ID3D11DeviceContext> context
+    const ComPtr<ID3D11DeviceContext> context,
+    const glm::mat4x4& projection
 )
     : m_Device(device)
     , m_Context(context)
+    , m_Projection(projection)
 {
-
+    m_Count = 0;
+    m_CharSpacing = 0;
+    m_LineSpacing = 0;
+    m_RectMargin = glm::vec4(-2.0f, -2.0f, 2.0f, 2.0f);
 }
 
 BitmapFont::~BitmapFont()
@@ -102,8 +123,10 @@ BitmapFont::~BitmapFont()
 
 }
 
-void BitmapFont::FileLoad(const std::string& fileName, FontData& out)
+void BitmapFont::FileLoad(const std::string& fontName, FontData& out)
 {
+    std::string fileName = "..\\Assets\\Font\\" + fontName + "\\" + fontName + ".png.fnt";
+
     std::ifstream file(fileName);
 
     file.unsetf(std::ios::skipws);  // スペースを読み飛ばさない
@@ -166,6 +189,11 @@ void BitmapFont::FileLoad(const std::string& fileName, FontData& out)
         u32 charsCount = GetValue<u32>(lineStr, "count");
         u16 id = 0;
 
+        for (u32 i = 0; i < FONT_DATA_CHARACTER_SIZE; ++i)
+        {
+            out.chars[i].id = 0xFFFF;
+        }
+
         for (u32 i = 0; i < charsCount; ++i)
         {
             lineStr = "";
@@ -199,34 +227,36 @@ void BitmapFont::FileLoad(const std::string& fileName, FontData& out)
             lineStr = "";
             std::getline(file, lineStr);
 
-            kerning.first = GetValue<u32>(lineStr, "first", 0);
-            kerning.second = GetValue<u32>(lineStr, "second", 0);
-            kerning.amount = GetValue<u32>(lineStr, "amount", 0);
+            kerning.first = GetValue<u16>(lineStr, "first", 0);
+            kerning.second = GetValue<u16>(lineStr, "second", 0);
+            kerning.amount = GetValue<u16>(lineStr, "amount", 0);
 
             out.kernings.push_back(kerning);
         }
     }
 }
 
-void BitmapFont::Initialize(const std::string& fileName)
+void BitmapFont::Initialize(const std::string& fontName)
 {
     // ファイル読み込み
-    FileLoad(fileName, m_Data);
+    FileLoad(fontName, m_Data);
     
     // テクスチャ作成
     {
-        Texture texture;
+        std::vector<std::string> files;
         for (auto& page : m_Data.pages)
         {
-            Util::CreateTextureFromFile(
-                m_Device,
-                "Resource\\Font\\" + page.file,
-                texture.Texture2D,
-                texture.ShaderResourceView
-            );
-
-            m_Textures.push_back(texture);
+            files.push_back("..\\Assets\\Font\\" + fontName + "\\" + page.file);
         }
+
+        // テクスチャ配列として生成
+        Util::CreateTextureArrayFromFile(
+            m_Device,
+            files,
+            m_Texture2D,
+            m_ShaderResourceView,
+            m_TextureSize
+        );
     }
 
     // 頂点バッファ作成
@@ -241,6 +271,7 @@ void BitmapFont::Initialize(const std::string& fileName)
             m_VertexStream.get(),
             sizeof(Vertex_BitmapFont) * m_BufferSize * 4,
             D3D11_BIND_VERTEX_BUFFER,
+            sizeof(Vertex_BitmapFont),
             m_VertexBuffer
         );
     }
@@ -249,7 +280,7 @@ void BitmapFont::Initialize(const std::string& fileName)
     {
         std::unique_ptr<u16> indexStream(new u16[m_BufferSize * 6]);
         u16* pIndex = indexStream.get();
-        for (u32 ii = 0; ii < m_BufferSize; ++ii)
+        for (u16 ii = 0; ii < m_BufferSize; ++ii)
         {
             pIndex[ii * 6 + 0] = ii * 4 + 0;
             pIndex[ii * 6 + 1] = ii * 4 + 1;
@@ -264,7 +295,30 @@ void BitmapFont::Initialize(const std::string& fileName)
             pIndex,
             sizeof(u16) * m_BufferSize * 6,
             D3D11_BIND_INDEX_BUFFER,
+            sizeof(u16),
             m_IndexBuffer
+        );
+    }
+
+    // 定数バッファ作成
+    {
+        Util::CreateBuffer(
+            m_Device,
+            &m_Projection,
+            sizeof(m_Projection),
+            D3D11_BIND_CONSTANT_BUFFER,
+            sizeof(m_Projection),
+            m_ConstantBuffer
+        );
+
+        // 定数バッファを更新
+        m_Context->UpdateSubresource(
+            m_ConstantBuffer.Get(),
+            0,
+            nullptr,
+            &m_Projection,
+            0,
+            0
         );
     }
 
@@ -272,8 +326,17 @@ void BitmapFont::Initialize(const std::string& fileName)
     {
         Util::CreateRasterizerState(
             m_Device,
-            D3D11_CULL_BACK,
+            D3D11_CULL_NONE,
+            FALSE,
             m_RasterizerState
+        );
+    }
+
+    // ブレンドステート作成
+    {
+        Util::CreateBlendState(
+            m_Device,
+            m_BlendState
         );
     }
 
@@ -310,6 +373,8 @@ void BitmapFont::Initialize(const std::string& fileName)
         );
     }
 
+    m_SizePerPix = glm::vec2(1.0f / static_cast<f32>(m_TextureSize.width), 1.0f / static_cast<f32>(m_TextureSize.height));
+
     // フォント描画縦サイズを取得
     m_FontHeight = m_Data.chars[static_cast<int>('A')].height + 2.0f;
 
@@ -317,38 +382,196 @@ void BitmapFont::Initialize(const std::string& fileName)
     m_CurrentColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
-//void BitmapFont::PutFormat(const glm::vec2& position, const char* pFormat, ...)
-//{
-//
-//}
-//
-//void BitmapFont::PutFormat(const glm::vec2& position, const glm::vec4& color, const char* pFormat, ...)
-//{
-//
-//}
-
-void BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, const char* pUtf8)
+glm::vec4 BitmapFont::Put(const glm::vec2& position, const char* pUtf8)
 {
     std::wstring widen = Util::Widen(pUtf8);
-    Put(position, color, widen.c_str());
+    return Put(position, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), widen.c_str());
 }
 
-void BitmapFont::Put(const glm::vec2& position, const char* pUtf8)
+glm::vec4 BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, const char* pUtf8)
 {
     std::wstring widen = Util::Widen(pUtf8);
-    Put(position, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), widen.c_str());
+    return Put(position, color, widen.c_str());
 }
 
-void BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, const wchar_t* pUtf16)
+glm::vec4 BitmapFont::Put(const glm::vec2& position, const wchar_t* pUtf16)
 {
-
+    return Put(position, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), pUtf16);
 }
 
-void BitmapFont::Put(const glm::vec2& position, const wchar_t* pUtf16);
+glm::vec4 BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, const wchar_t* pUtf16)
+{
+    glm::vec4 rect(position.x, position.y, position.x, position.y);
+    m_Location = position;
+    m_CurrentColor = color;
 
-void BitmapFont::Draw();
+    u32 iCharaCount = 0;
+    wchar_t utf16Code = *pUtf16;
+    while (utf16Code != 0x0000)
+    {
+        const FontCharacter* pChar = &m_Data.chars[utf16Code];
+        switch (utf16Code)
+        {
+        default:// 通常文字
+            if (pChar->id != 0xFFFF)
+            {
+                PutVertex(pChar);
+                m_Location.x += pChar->xadvance + m_CharSpacing;
+                if (rect[2] < m_Location.x) rect[2] = m_Location.x;
+            }
+            break;
+        case '\n':// 改行
+            m_Location.x = position.x;
+            m_Location.y += m_FontHeight + m_LineSpacing;
+            if (rect[3] < m_Location.y) rect[3] = m_Location.y;
+            break;
+        }
 
-void BitmapFont::Clear();
+        iCharaCount++;
+        if (m_Count >= m_BufferSize)
+        {
+            break;// バッファーサイズオーバー
+        }
+        utf16Code = pUtf16[iCharaCount];
+    }
+    f32 bottom = m_Location.y + m_FontHeight + m_LineSpacing;
+    if (rect[3] < bottom) rect[3] = bottom;
+    rect += m_RectMargin;
+    rect[2] -= rect[0];
+    rect[3] -= rect[1];
+    m_UpdateBufferRq = true;
+    return rect;
+}
 
-void BitmapFont::Flush();
+void BitmapFont::Draw()
+{
+    // 頂点バッファの更新
+    if (m_UpdateBufferRq)
+    {
+        m_Context->UpdateSubresource(m_VertexBuffer.Get(), 0, nullptr, m_VertexStream.get(), 0, 0);
+
+        m_UpdateBufferRq = false;
+    }
+
+    // 入力レイアウトを設定
+    m_Context->IASetInputLayout(m_InputLayout.Get());
+
+    // 頂点バッファを設定
+    {
+        constexpr UINT stride = sizeof(Vertex_BitmapFont);
+        UINT offset = 0;
+
+        ID3D11Buffer* pVertexBuffers[] = {
+            m_VertexBuffer.Get()
+        };
+        m_Context->IASetVertexBuffers(
+            0,
+            _countof(pVertexBuffers),
+            pVertexBuffers,
+            &stride,
+            &offset
+        );
+    }
+
+    // インデックスバッファを設定
+    m_Context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+
+    // プリミティブトポロジーの設定
+    m_Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // 頂点シェーダーの設定
+    m_Context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
+
+    // 頂点シェーダーに定数バッファを設定
+    {
+        ID3D11Buffer* pConstantBuffers[] = {
+            m_ConstantBuffer.Get()
+        };
+        m_Context->VSSetConstantBuffers(0, _countof(pConstantBuffers), pConstantBuffers);
+    }
+
+    // ピクセルシェーダーを設定
+    m_Context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
+
+    // ピクセルシェーダーにサンプラーステートを設定
+    {
+        ID3D11SamplerState* pSamplers[] = {
+            m_SamplerState.Get()
+        };
+        m_Context->PSSetSamplers(0, _countof(pSamplers), pSamplers);
+    }
+
+    // ピクセルシェーダーにシェーダーリソースビューを設定
+    {
+        ID3D11ShaderResourceView* pShaderResourceViews[] = {
+            m_ShaderResourceView.Get()
+        };
+        m_Context->PSSetShaderResources(0, _countof(pShaderResourceViews), pShaderResourceViews);
+    }
+
+    // ラスタライザーステートを設定
+    m_Context->RSSetState(m_RasterizerState.Get());
+
+    // ブレンドステートを設定
+    m_Context->OMSetBlendState(m_BlendState.Get(), nullptr, 0xFFFFFFFF);
+
+    m_Context->DrawIndexed(static_cast<UINT>(m_Count) * 6, 0, 0);
+}
+
+void BitmapFont::Clear()
+{
+    m_Count = 0;
+}
+
+void BitmapFont::Flush()
+{
+    Draw();
+    m_Count = 0;
+    m_UpdateBufferRq = true;
+}
+
+void BitmapFont::PutVertex(const FontCharacter* pChar)
+{
+    if (m_Count >= m_BufferSize) { return; }
+
+    Vertex_BitmapFont * pVtx = m_VertexStream.get() + m_Count * 4;
+
+    f32 x = m_Location.x + pChar->xoffset;
+    f32 y = m_Location.y + pChar->yoffset;
+    //	-1.0f, 1.0f,0.0f,0.0f,// 左上
+    //	-1.0f,-1.0f,0.0f,1.0f,// 左下
+    //	 1.0f, 1.0f,1.0f,0.0f,// 右上
+    //	 1.0f,-1.0f,1.0f,1.0f,// 右下
+    // 	pVertex
+    //  [0]左上
+    //  [1]右上
+    //	[2]左下
+    //	[3]右下
+    pVtx[0].Position.x = x;
+    pVtx[1].Position.x = x + pChar->width;
+    pVtx[2].Position.x = x;
+    pVtx[3].Position.x = x + pChar->width;
+    pVtx[0].Position.y = y;
+    pVtx[1].Position.y = y;
+    pVtx[2].Position.y = y + pChar->height;
+    pVtx[3].Position.y = y + pChar->height;
+    pVtx[0].Texture.x = m_SizePerPix.x * pChar->x;
+    pVtx[1].Texture.x = m_SizePerPix.x * (pChar->x + pChar->width);
+    pVtx[2].Texture.x = pVtx[0].Texture.x;
+    pVtx[3].Texture.x = pVtx[1].Texture.x;
+    pVtx[0].Texture.y = m_SizePerPix.y * pChar->y;
+    pVtx[1].Texture.y = pVtx[0].Texture.y;
+    pVtx[2].Texture.y = m_SizePerPix.y * (pChar->y + pChar->height);
+    pVtx[3].Texture.y = pVtx[2].Texture.y;
+    pVtx[0].Color = Util::ColorPack(m_CurrentColor);
+    pVtx[1].Color = pVtx[0].Color;
+    pVtx[2].Color = pVtx[0].Color;
+    pVtx[3].Color = pVtx[0].Color;
+    pVtx[0].Page = pChar->page;
+    pVtx[1].Page = pVtx[0].Page;
+    pVtx[2].Page = pVtx[0].Page;
+    pVtx[3].Page = pVtx[0].Page;
+
+    m_Count++;
+}
 

@@ -68,8 +68,8 @@ struct FontCharacter
     u16 y;         // The top position of the character image in the texture.
     u16 width;     // The width of the character image in the texture.
     u16 height;    // The height of the character image in the texture.
-    u16 xoffset;   // How much the current position should be offset when copying the image from the texture to the screen.
-    u16 yoffset;   // How much the current position should be offset when copying the image from the texture to the screen.
+    s16 xoffset;   // How much the current position should be offset when copying the image from the texture to the screen.
+    s16 yoffset;   // How much the current position should be offset when copying the image from the texture to the screen.
     u16 xadvance;  // How much the current position should be advanced after drawing the character.
     u16 page;      // The texture page where the character image is found.
     u8  chnl;      // The texture channel where the character image is found (1 = blue, 2 = green, 4 = red, 8 = alpha, 15 = all channels).
@@ -107,6 +107,7 @@ struct Vertex_BitmapFont
     Float2 Position;
     u32    Color;
     Float2 Texture;
+    u16    Page;
 
     static constexpr UINT PositionOffset = 0;
     static constexpr UINT PositionSize = sizeof(Float2);
@@ -117,10 +118,14 @@ struct Vertex_BitmapFont
     static constexpr UINT TextureOffset = ColorOffset + ColorSize;
     static constexpr UINT TextureSize = sizeof(Float2);
 
+    static constexpr UINT PageOffset = TextureOffset + TextureSize;
+    static constexpr UINT PageSize = sizeof(u16);
+
     static constexpr D3D11_INPUT_ELEMENT_DESC pInputElementDescs[] = {
-        { "POSITION", 0,    DXGI_FORMAT_R32G32_FLOAT,   0,  PositionOffset, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR",    0,    DXGI_FORMAT_R8G8B8A8_UINT,  0,  ColorOffset,    D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0,    DXGI_FORMAT_R32G32_FLOAT,   0,  TextureOffset,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "POSITION", 0,    DXGI_FORMAT_R32G32_FLOAT,   0,  0,                              D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0,    DXGI_FORMAT_R8G8B8A8_UNORM, 0,  D3D11_APPEND_ALIGNED_ELEMENT,   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0,    DXGI_FORMAT_R32G32_FLOAT,   0,  D3D11_APPEND_ALIGNED_ELEMENT,   D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        { "PAGE",     0,    DXGI_FORMAT_R16_UINT,       0,  D3D11_APPEND_ALIGNED_ELEMENT,   D3D11_INPUT_PER_VERTEX_DATA, 0 },
     };
     static constexpr UINT InputElementCount = _countof(pInputElementDescs);
 };
@@ -131,7 +136,8 @@ class BitmapFont
 public:
     BitmapFont(
         const ComPtr<ID3D11Device>& device,
-        const ComPtr<ID3D11DeviceContext> context
+        const ComPtr<ID3D11DeviceContext> context,
+        const glm::mat4x4& projection
     );
 
     ~BitmapFont();
@@ -140,17 +146,17 @@ public:
 
     void Initialize(const std::string& fileName);
 
-    void PutFormat(const glm::vec2& position, const char* pFormat, ...);
+    //glm::vec4 PutFormat(const glm::vec2& position, const char* pFormat, ...);
 
-    void PutFormat(const glm::vec2& position, const glm::vec4& color, const char* pFormat, ...);
+    //glm::vec4 PutFormat(const glm::vec2& position, const glm::vec4& color, const char* pFormat, ...);
 
-    void Put(const glm::vec2& position, const glm::vec4& color, const char* pUtf8);
+    glm::vec4 Put(const glm::vec2& position, const char* pUtf8);
 
-    void Put(const glm::vec2& position, const char* pUtf8);
+    glm::vec4 Put(const glm::vec2& position, const glm::vec4& color, const char* pUtf8);
 
-    void Put(const glm::vec2& position, const glm::vec4& color, const wchar_t* pUtf16);
+    glm::vec4 Put(const glm::vec2& position, const wchar_t* pUtf16);
 
-    void Put(const glm::vec2& position, const wchar_t* pUtf16);
+    glm::vec4 Put(const glm::vec2& position, const glm::vec4& color, const wchar_t* pUtf16);
 
     void Draw();
 
@@ -159,27 +165,24 @@ public:
     void Flush();
 
 protected:
-    void PutVertex();
+    void PutVertex(const FontCharacter* pChar);
 
+    ComPtr<ID3D11Device>                m_Device;               // デバイス
+    ComPtr<ID3D11DeviceContext>         m_Context;              // デバイスコンテキスト
+    ComPtr<ID3D11ShaderResourceView>    m_ShaderResourceView;   // シェーダーリソース
+    ComPtr<ID3D11Texture2D>             m_Texture2D;            // テクスチャ
+    ComPtr<ID3D11Buffer>                m_VertexBuffer;         // 頂点バッファ
+    ComPtr<ID3D11Buffer>                m_IndexBuffer;          // インデックスバッファ
+    ComPtr<ID3D11Buffer>                m_ConstantBuffer;       // 定数バッファ
+    std::unique_ptr<Vertex_BitmapFont>  m_VertexStream;         // CPU側頂点バッファ      m_BufferSize * 4 頂点
+    ComPtr<ID3D11VertexShader>          m_VertexShader;         // 頂点シェーダー
+    ComPtr<ID3D11PixelShader>           m_PixelShader;          // ピクセルシェーダー
+    ComPtr<ID3D11InputLayout>           m_InputLayout;          // 入力レイアウト
+    ComPtr<ID3D11SamplerState>          m_SamplerState;         // フォント描画用サンプラー
+    ComPtr<ID3D11RasterizerState>       m_RasterizerState;      // ラスタライザーステート
+    ComPtr<ID3D11BlendState>            m_BlendState;           // ブレンドステート
 
-    struct Texture
-    {
-        ComPtr<ID3D11ShaderResourceView> ShaderResourceView;
-        ComPtr<ID3D11Texture2D>          Texture2D;
-    };
-
-    ComPtr<ID3D11Device>                m_Device;           // デバイス
-    ComPtr<ID3D11DeviceContext>         m_Context;          // デバイスコンテキスト
-    std::vector<Texture>                m_Textures;         // テクスチャ
-    ComPtr<ID3D11Buffer>                m_VertexBuffer;     // 頂点バッファー
-    ComPtr<ID3D11Buffer>                m_IndexBuffer;      // インデックスバッファー
-    std::unique_ptr<Vertex_BitmapFont>  m_VertexStream;     // CPU側頂点バッファー      m_BufferSize * 4 頂点
-    ComPtr<ID3D11VertexShader>          m_VertexShader;     // 頂点シェーダー
-    ComPtr<ID3D11PixelShader>           m_PixelShader;      // ピクセルシェーダー
-    ComPtr<ID3D11InputLayout>           m_InputLayout;      // 入力レイアウト
-    ComPtr<ID3D11SamplerState>          m_SamplerState;     // フォント描画用サンプラー
-    ComPtr<ID3D11RasterizerState>       m_RasterizerState;  // ラスタライザーステート
-
+    Size2D      m_TextureSize;
     FontData    m_Data;
     bool        m_UpdateBufferRq;   // バッファー更新リクエスト
     u32         m_BufferSize;       // 描画最大文字数
@@ -187,8 +190,7 @@ protected:
     f32         m_CharSpacing;      // 横文字間
     f32         m_LineSpacing;      // 縦文字間
     glm::vec4   m_RectDrawArea;     // 描画領域
-    f32         m_Location_x;       // 現在文字位置
-    f32         m_Location_y;       // 現在文字位置
+    glm::vec2   m_Location;         // 現在文字位置
     f32         m_FontHeight;       // フォントの縦描画サイズ
     glm::vec2   m_SizePerPix;       // 1ピクセルあたりのUV値
     glm::vec4   m_Color;            // 描画乗算色(全体)

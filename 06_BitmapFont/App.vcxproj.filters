@@ -24,5 +24,7 @@
   <ItemGroup>
     <FxCompile Include="Resource\Shader\VertexShader.hlsl" />
     <FxCompile Include="Resource\Shader\PixelShader.hlsl" />
+    <FxCompile Include="Resource\Shader\FontVS.hlsl" />
+    <FxCompile Include="Resource\Shader\FontPS.hlsl" />
   </ItemGroup>
 </Project>

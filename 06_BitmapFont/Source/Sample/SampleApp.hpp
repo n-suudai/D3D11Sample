@@ -41,10 +41,10 @@ private:
     bool CreateShader(const std::string& vertexShader, const std::string& pixelShader);
 
     // 頂点バッファを作成
-    bool CreateVertexBuffer(const void* pVertices, UINT byteWidth);
+    bool CreateVertexBuffer(const void* pVertices, UINT byteWidth, UINT stride);
 
     // インデックスバッファを作成
-    bool CreateIndexBuffer(const void* pIndices, UINT byteWidth);
+    bool CreateIndexBuffer(const void* pIndices, UINT byteWidth, UINT stride);
 
     // 定数バッファを作成
     bool CreateConstantBuffer(const void* pInitData, UINT byteWidth);
@@ -101,6 +101,9 @@ private:
 
     ComPtr<ID3D11Texture2D>          m_Texture2D;
     ComPtr<ID3D11ShaderResourceView> m_ShaderResourceView;
+
+
+    std::unique_ptr<BitmapFont> m_BitmapFont;
 };
 
 

@@ -381,19 +381,108 @@ inline bool CreateTextureFromFile(
 }
 
 
+inline bool CreateTextureArrayFromFile(
+    const ComPtr<ID3D11Device>& device,
+    std::vector<std::string> fileNames,
+    ComPtr<ID3D11Texture2D>& outTexture2D,
+    ComPtr<ID3D11ShaderResourceView>& outShaderResourceView,
+    Size2D& outTextureSize
+)
+{
+    std::vector<std::vector<unsigned char>> images;
+    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+    for (auto& fileName : fileNames)
+    {
+        std::vector<unsigned char> image;
+
+        // PNG 読み込み
+        if (!LoadPng(fileName, image, format, outTextureSize))
+        {
+            return false;
+        }
+        images.push_back(std::move(image));
+    }
+
+    CD3D11_TEXTURE2D_DESC texture2DDesc(
+        format,
+        static_cast<UINT>(outTextureSize.width),
+        static_cast<UINT>(outTextureSize.height),
+        static_cast<UINT>(images.size()),
+        1,
+        D3D11_BIND_SHADER_RESOURCE
+    );
+    
+    std::vector<D3D11_SUBRESOURCE_DATA> subresourceDataArray;
+
+    for (auto& image : images)
+    {
+        void* pImage = &image[0];
+        D3D11_SUBRESOURCE_DATA subresourceData;
+        ZeroMemory(&subresourceData, sizeof(subresourceData));
+
+        subresourceData.pSysMem = pImage;
+        subresourceData.SysMemPitch = DXGIFormatSystemPitch(format, static_cast<UINT>(outTextureSize.width));
+        subresourceData.SysMemSlicePitch = static_cast<UINT>(image.size());
+
+        subresourceDataArray.push_back(subresourceData);
+    }
+
+    // テクスチャを生成
+    ResultUtil result = device->CreateTexture2D(
+        &texture2DDesc,
+        &subresourceDataArray[0],
+        &outTexture2D
+    );
+    if (!result)
+    {
+        ShowErrorMessage(result, "device->CreateTexture2D");
+        return false;
+    }
+
+    // シェーダーリソースビューを生成
+    {
+        CD3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc(
+            D3D11_SRV_DIMENSION_TEXTURE2DARRAY,
+            format,
+            0,
+            texture2DDesc.MipLevels
+        );
+
+        // シェーダーリソースビューを生成
+        result = device->CreateShaderResourceView(
+            outTexture2D.Get(),
+            &shaderResourceViewDesc,
+            &outShaderResourceView
+        );
+        if (!result)
+        {
+            ShowErrorMessage(result, "device->CreateShaderResourceView");
+            return false;
+        }
+    }
+    return true;
+}
+
+
 // 各種バッファの作成
 inline bool CreateBuffer(
     const ComPtr<ID3D11Device>& device,
     const void* pInitData,
     UINT byteWidth,
     D3D11_BIND_FLAG bindFlag,
+    UINT stride,
     ComPtr<ID3D11Buffer>& outBuffer
 )
 {
     // バッファの設定
     CD3D11_BUFFER_DESC bufferDesc(
         byteWidth,
-        bindFlag
+        bindFlag,
+        D3D11_USAGE_DEFAULT,
+        0,
+        0,
+        stride
     );
 
     // サブリソースの設定
@@ -422,11 +511,13 @@ inline bool CreateBuffer(
 inline bool CreateRasterizerState(
     const ComPtr<ID3D11Device>& device,
     D3D11_CULL_MODE cullMode,
+    BOOL depthClipEnable,
     ComPtr<ID3D11RasterizerState>& outRasterizerState
 )
 {
     CD3D11_RASTERIZER_DESC rasterizerDesc(D3D11_DEFAULT);
     rasterizerDesc.CullMode = cullMode;
+    rasterizerDesc.DepthClipEnable = depthClipEnable;
 
     ResultUtil result = device->CreateRasterizerState(
         &rasterizerDesc,
@@ -509,8 +600,8 @@ inline bool CreateVertexShaderAndInputLayout(
     // InputLayout
     {
         result = device->CreateInputLayout(
-            Vertex::pInputElementDescs,
-            Vertex::InputElementCount,
+            pInputElementDescs,
+            inputElementCount,
             vertexShaderData.data(),
             vertexShaderData.size(),
             &outInputLayout
@@ -553,6 +644,46 @@ inline bool CreatePixelShader(
     }
 
     return true;
+}
+
+
+// ブレンドステートを作成
+inline bool CreateBlendState(
+    const ComPtr<ID3D11Device>& device,
+    ComPtr<ID3D11BlendState>& outBlendState
+)
+{
+    // アルファブレンド 加算
+    CD3D11_BLEND_DESC blendDesc(D3D11_DEFAULT);
+    blendDesc.RenderTarget[0].BlendEnable = TRUE;
+    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    
+    ResultUtil result = device->CreateBlendState(
+        &blendDesc,
+        &outBlendState
+    );
+    if (!result)
+    {
+        ShowErrorMessage(result, "device->CreateBlendState");
+        return false;
+    }
+    return true;
+}
+
+
+inline u32 ColorPack(const glm::vec4& color)
+{
+    glm::vec4 saturatedColor = glm::saturation(1.0f, color);
+    return (u32)(saturatedColor.a * 255) << 24 |
+        (u32)(saturatedColor.b * 255) << 16 |
+        (u32)(saturatedColor.g * 255) << 8 |
+        (u32)(saturatedColor.r * 255);
 }
 
 
