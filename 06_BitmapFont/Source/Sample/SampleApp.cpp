@@ -279,7 +279,7 @@ void SampleApp::Update()
     // ワールド変換行列を設定
     {
         static f32 rot = 0.0f;
-        //rot += 0.0001f;
+        rot += 0.0001f;
 
         g_ConstantBufferData.World = glm::rotate(
             glm::mat4x4(1.0f),
@@ -392,7 +392,7 @@ void SampleApp::Render()
     m_Context->RSSetState(m_RasterizerState.Get());
 
     // ブレンドステートを設定
-    m_Context->OMSetBlendState(nullptr, nullptr, 0);
+    //m_Context->OMSetBlendState(nullptr, nullptr, 0);
 
     // 深度ステンシルステートを設定
     m_Context->OMSetDepthStencilState(m_DepthStencilState.Get(), 0);
