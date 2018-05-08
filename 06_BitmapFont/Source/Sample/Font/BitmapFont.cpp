@@ -115,6 +115,7 @@ BitmapFont::BitmapFont(
     m_Count = 0;
     m_CharSpacing = 0;
     m_LineSpacing = 0;
+    m_FontScale = 1.0f;
     m_RectMargin = glm::vec4(-2.0f, -2.0f, 2.0f, 2.0f);
 }
 
@@ -125,7 +126,7 @@ BitmapFont::~BitmapFont()
 
 void BitmapFont::FileLoad(const std::string& fontName, FontData& out)
 {
-    std::string fileName = "..\\Assets\\Font\\" + fontName + "\\" + fontName + ".png.fnt";
+    std::string fileName = "..\\Assets\\Font\\" + fontName + "\\" + fontName + ".fnt";
 
     std::ifstream file(fileName);
 
@@ -229,7 +230,7 @@ void BitmapFont::FileLoad(const std::string& fontName, FontData& out)
 
             kerning.first = GetValue<u16>(lineStr, "first", 0);
             kerning.second = GetValue<u16>(lineStr, "second", 0);
-            kerning.amount = GetValue<u16>(lineStr, "amount", 0);
+            kerning.amount = GetValue<s16>(lineStr, "amount", 0);
 
             out.kernings.push_back(kerning);
         }
@@ -407,22 +408,24 @@ glm::vec4 BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, con
 
     u32 iCharaCount = 0;
     wchar_t utf16Code = *pUtf16;
+    wchar_t utf16CodePrev = *pUtf16;
     while (utf16Code != 0x0000)
     {
         const FontCharacter* pChar = &m_Data.chars[utf16Code];
+        const FontCharacter* pCharPrev = &m_Data.chars[utf16CodePrev];
         switch (utf16Code)
         {
         default:// 通常文字
             if (pChar->id != 0xFFFF)
             {
-                PutVertex(pChar);
-                m_Location.x += pChar->xadvance + m_CharSpacing;
+                PutVertex(pCharPrev, pChar);
+                m_Location.x += (pChar->xadvance * m_FontScale) + m_CharSpacing;
                 if (rect[2] < m_Location.x) rect[2] = m_Location.x;
             }
             break;
         case '\n':// 改行
             m_Location.x = position.x;
-            m_Location.y += m_FontHeight + m_LineSpacing;
+            m_Location.y += (m_FontHeight * m_FontScale) + m_LineSpacing;
             if (rect[3] < m_Location.y) rect[3] = m_Location.y;
             break;
         }
@@ -432,9 +435,10 @@ glm::vec4 BitmapFont::Put(const glm::vec2& position, const glm::vec4& color, con
         {
             break;// バッファーサイズオーバー
         }
+        utf16CodePrev = utf16Code;
         utf16Code = pUtf16[iCharaCount];
     }
-    f32 bottom = m_Location.y + m_FontHeight + m_LineSpacing;
+    f32 bottom = m_Location.y + (m_FontHeight * m_FontScale) + m_LineSpacing;
     if (rect[3] < bottom) rect[3] = bottom;
     rect += m_RectMargin;
     rect[2] -= rect[0];
@@ -530,14 +534,22 @@ void BitmapFont::Flush()
     m_UpdateBufferRq = true;
 }
 
-void BitmapFont::PutVertex(const FontCharacter* pChar)
+void BitmapFont::PutVertex(const FontCharacter* pCharPrev, const FontCharacter* pChar)
 {
     if (m_Count >= m_BufferSize) { return; }
 
     Vertex_BitmapFont * pVtx = m_VertexStream.get() + m_Count * 4;
 
-    f32 x = m_Location.x + pChar->xoffset;
-    f32 y = m_Location.y + pChar->yoffset;
+    f32 x = m_Location.x + (pChar->xoffset * m_FontScale);
+    f32 y = m_Location.y + (pChar->yoffset * m_FontScale);
+
+    FontKerning* pKerning = GetKering(pCharPrev, pChar);
+
+    if (pKerning != nullptr)
+    {
+        x += pKerning->amount * m_FontScale;
+    }
+
     //	-1.0f, 1.0f,0.0f,0.0f,// 左上
     //	-1.0f,-1.0f,0.0f,1.0f,// 左下
     //	 1.0f, 1.0f,1.0f,0.0f,// 右上
@@ -548,13 +560,13 @@ void BitmapFont::PutVertex(const FontCharacter* pChar)
     //	[2]左下
     //	[3]右下
     pVtx[0].Position.x = x;
-    pVtx[1].Position.x = x + pChar->width;
+    pVtx[1].Position.x = x + (pChar->width * m_FontScale);
     pVtx[2].Position.x = x;
-    pVtx[3].Position.x = x + pChar->width;
+    pVtx[3].Position.x = x + (pChar->width * m_FontScale);
     pVtx[0].Position.y = y;
     pVtx[1].Position.y = y;
-    pVtx[2].Position.y = y + pChar->height;
-    pVtx[3].Position.y = y + pChar->height;
+    pVtx[2].Position.y = y + (pChar->height * m_FontScale);
+    pVtx[3].Position.y = y + (pChar->height * m_FontScale);
     pVtx[0].Texture.x = m_SizePerPix.x * pChar->x;
     pVtx[1].Texture.x = m_SizePerPix.x * (pChar->x + pChar->width);
     pVtx[2].Texture.x = pVtx[0].Texture.x;
@@ -573,5 +585,23 @@ void BitmapFont::PutVertex(const FontCharacter* pChar)
     pVtx[3].Page = pVtx[0].Page;
 
     m_Count++;
+}
+
+FontKerning* BitmapFont::GetKering(const FontCharacter* pCharLeft, const FontCharacter* pCharRight)
+{
+    if (pCharLeft == pCharRight) { return nullptr; }
+
+    FontKerning* pKerning = nullptr;
+
+    for (auto& kerning : m_Data.kernings)
+    {
+        if (kerning.first == pCharLeft->id && kerning.second == pCharRight->id)
+        {
+            pKerning = &kerning;
+            break;
+        }
+    }
+
+    return pKerning;
 }
 

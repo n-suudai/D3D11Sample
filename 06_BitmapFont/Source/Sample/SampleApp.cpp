@@ -274,7 +274,7 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
-    m_BitmapFont->Put(glm::vec2(0.5f, 0.5f), "テキスト");
+    m_BitmapFont->Put(glm::vec2(128.0f, 128.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "SAMPLE");
 
     // ワールド変換行列を設定
     {

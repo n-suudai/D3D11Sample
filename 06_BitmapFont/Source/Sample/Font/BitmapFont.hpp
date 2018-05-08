@@ -82,7 +82,7 @@ struct FontKerning
 {
     u16 first;     // The first character id.
     u16 second;    // The second character id.
-    u16 amount;    // How much the x position should be adjusted when drawing the second character immediately following the first.
+    s16 amount;    // How much the x position should be adjusted when drawing the second character immediately following the first.
 };
 
 
@@ -165,7 +165,9 @@ public:
     void Flush();
 
 protected:
-    void PutVertex(const FontCharacter* pChar);
+    void PutVertex(const FontCharacter* pCharPrev, const FontCharacter* pChar);
+
+    FontKerning* GetKering(const FontCharacter* pCharLeft, const FontCharacter* pCharRight);
 
     ComPtr<ID3D11Device>                m_Device;               // デバイス
     ComPtr<ID3D11DeviceContext>         m_Context;              // デバイスコンテキスト
@@ -184,6 +186,7 @@ protected:
 
     Size2D      m_TextureSize;
     FontData    m_Data;
+    f32         m_FontScale;
     bool        m_UpdateBufferRq;   // バッファー更新リクエスト
     u32         m_BufferSize;       // 描画最大文字数
     u32         m_Count;            // 表示文字数
