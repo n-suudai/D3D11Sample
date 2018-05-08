@@ -113,7 +113,7 @@ BitmapFont::BitmapFont(
     , m_Projection(projection)
 {
     m_Count = 0;
-    m_CharSpacing = 0;
+    m_CharSpacing = -2.0f;
     m_LineSpacing = 0;
     m_FontScale = 1.0f;
     m_RectMargin = glm::vec4(-2.0f, -2.0f, 2.0f, 2.0f);

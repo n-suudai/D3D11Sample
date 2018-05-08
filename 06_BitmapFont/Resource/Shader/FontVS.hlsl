@@ -8,7 +8,7 @@ cbuffer CB0 : register(b0)
 
 struct VS_INPUT
 {
-    float4 position : POSITION;
+    float2 position : POSITION;
     float4 color : COLOR;
     float2 tex : TEXCOORD;
     uint   page : PAGE;
