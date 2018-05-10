@@ -6,83 +6,6 @@
 #pragma comment(lib, "d3d11.lib")
 
 
-using Vertex = Vertex_PositionColorNormalTexture;
-
-
-// 定数バッファデータ
-struct ConstantBufferData
-{
-    glm::mat4x4 World;
-    glm::mat4x4 View;
-    glm::mat4x4 Projection;
-    glm::mat4x4 WorldInverse;
-    glm::vec4   LightDirection;
-};
-ConstantBufferData g_ConstantBufferData;
-
-
-// 頂点バッファデータ
-const Vertex g_vertices[] = {
-    { { -1.0f,  1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 0.0f, 0.0f } },
-    { {  1.0f,  1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f,  1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }, {  0.0f,  0.0f, -1.0f, 0.0f }, { 1.0f, 1.0f } },
-
-    { {  1.0f,  1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { {  1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f, -1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f, -1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f, -1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }, {  1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 1.0f } },
-
-    { {  1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 0.0f, 0.0f } },
-    { { -1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f, -1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f, -1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f, -1.0f,  1.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }, {  0.0f,  0.0f,  1.0f, 0.0f }, { 1.0f, 1.0f } },
-
-    { { -1.0f,  1.0f,  1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { { -1.0f,  1.0f, -1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f, -1.0f,  1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f, -1.0f,  1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f,  1.0f, -1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, { -1.0f,  0.0f,  0.0f, 0.0f }, { 1.0f, 1.0f } },
-
-    { { -1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { {  1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f,  1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f,  1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f,  1.0f,  1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f,  1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f, 1.0f }, {  0.0f,  1.0f,  0.0f, 0.0f }, { 1.0f, 1.0f } },
-
-    { { -1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 0.0f, 0.0f } },
-    { {  1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { { -1.0f, -1.0f,  1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { { -1.0f, -1.0f,  1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 0.0f, 1.0f } },
-    { {  1.0f, -1.0f, -1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 1.0f, 0.0f } },
-    { {  1.0f, -1.0f,  1.0f, 1.0f }, { 1.0f, 0.0f, 1.0f, 1.0f }, {  0.0f, -1.0f,  0.0f, 0.0f }, { 1.0f, 1.0f } },
-};
-
-
-// インデックスバッファデータ
-const u16 g_indices[] = {
-     0,  1,  2,
-     3,  4,  5,
-     6,  7,  8,
-     9, 10, 11,
-    12, 13, 14,
-    15, 16, 17,
-    18, 19, 20,
-    21, 22, 23,
-    24, 25, 26,
-    27, 28, 29,
-    30, 31, 32,
-    33, 34, 35,
-};
-
 
 SampleApp::SampleApp(IApp* pApp)
     : m_pApp(pApp)
@@ -202,47 +125,6 @@ bool SampleApp::Init()
         return false;
     }
 
-    // 頂点バッファを生成
-    if (!CreateVertexBuffer(g_vertices, sizeof(g_vertices), sizeof(g_vertices[0])))
-    {
-        return false;
-    }
-
-    // インデックスバッファを生成
-    if (!CreateIndexBuffer(g_indices, sizeof(g_indices), sizeof(g_indices[0])))
-    {
-        return false;
-    }
-
-    // 定数バッファを生成
-    if (!CreateConstantBuffer(&g_ConstantBufferData, sizeof(g_ConstantBufferData)))
-    {
-        return false;
-    }
-
-    // シェーダーを生成
-    if (!CreateShader("Resource\\Shader\\VertexShader.cso", "Resource\\Shader\\PixelShader.cso"))
-    {
-        return false;
-    }
-
-    // ラスタライザーステートを生成
-    if (!CreateRasterizerState())
-    {
-        return false;
-    }
-
-    // サンプラーステートを生成
-    if (!CreateSamplerState())
-    {
-        return false;
-    }
-
-    if (!CreateTextureFromFile("..\\Assets\\Image\\icon.png"))
-    {
-        return false;
-    }
-
     // ビットマップフォントを生成
     {
         glm::mat4x4 projection = glm::orthoLH(
@@ -264,6 +146,15 @@ bool SampleApp::Init()
 
     m_BitmapFont->Initialize("Meiryo");
 
+    // シェイプを生成
+    {
+        m_Shape = std::make_unique<Shape>(
+                m_Device,
+                m_Context
+            );
+        m_Shape->InitializeAsTorus(32, 32, 0.5f, 1.5f);
+    }
+
     return true;
 }
 
@@ -278,39 +169,50 @@ void SampleApp::Update()
 {
     m_BitmapFont->Put(glm::vec2(10.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "SAMPLE");
 
+    glm::mat4x4 invWorld;
+    glm::mat4x4 modelViewProjection;
+
+    glm::vec4 lightDirection(0.5f, 0.5f, 0.5f, 1.0f);
+    glm::vec4 eyeDirection(0.0f, 2.8f, 6.0f, 1.0f);
+
+    m_Shape->GetConstantBuffer().AmbientColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+
     // ワールド変換行列を設定
     {
         static f32 rot = 0.0f;
         rot += 0.0001f;
 
-        g_ConstantBufferData.World = glm::rotate(
+        glm::mat4x4 world = glm::rotate(
             glm::mat4x4(1.0f),
             rot,
             glm::vec3(0.0f, 1.0f, 0.0f)
         );
 
-        g_ConstantBufferData.WorldInverse = glm::inverse(g_ConstantBufferData.World);
+        invWorld = glm::inverse(world);
 
-        g_ConstantBufferData.World = glm::transpose(g_ConstantBufferData.World);
-        g_ConstantBufferData.WorldInverse = glm::transpose(g_ConstantBufferData.WorldInverse);
+        modelViewProjection = world;
+
+        m_Shape->GetConstantBuffer().LightDirection = invWorld * lightDirection;
+        m_Shape->GetConstantBuffer().EyeDirection = invWorld * eyeDirection;
     }
 
     // ビュー変換行列を設定
     {
-        g_ConstantBufferData.View = glm::lookAtLH(
-            glm::vec3(0.0f, 2.8f, 6.0f),
+        glm::mat4x4 view = glm::lookAtLH(
+            glm::vec3(eyeDirection.x, eyeDirection.y, eyeDirection.z),
             glm::vec3(0.0f, -0.1f, 0.0f),
             glm::vec3(0.0f, 1.0f, 0.0f)
         );
 
-        g_ConstantBufferData.View = glm::transpose(g_ConstantBufferData.View);
+        //modelViewProjection *= view;
+        modelViewProjection = view * modelViewProjection;
     }
 
     // プロジェクション行列を設定
     {
         const Size2D& clientSize = m_pApp->GetClientSize();
 
-        g_ConstantBufferData.Projection = glm::perspectiveFovLH(
+        glm::mat4x4 projection = glm::perspectiveFovLH(
             glm::radians(45.0f),
             static_cast<f32>(clientSize.width),
             static_cast<f32>(clientSize.height),
@@ -318,13 +220,12 @@ void SampleApp::Update()
             100.0f
         );
 
-        g_ConstantBufferData.Projection = glm::transpose(g_ConstantBufferData.Projection);
+        //modelViewProjection *= projection;
+        modelViewProjection = projection * modelViewProjection;
     }
 
-    // 平行光源を設定
-    {
-        g_ConstantBufferData.LightDirection = glm::vec4(0.5f, 0.5f, 0.5f, 0.0f);
-    }
+    m_Shape->GetConstantBuffer().ModelViewProjection =
+        glm::transpose(modelViewProjection);
 }
 
 // 描画処理
@@ -340,86 +241,14 @@ void SampleApp::Render()
     // 深度ステンシルビューをクリア
     m_Context->ClearDepthStencilView(m_DepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-    // 入力レイアウトを設定
-    m_Context->IASetInputLayout(m_InputLayout.Get());
-
-    // 入力レイアウトに頂点バッファを設定
-    {
-        UINT stride = sizeof(g_vertices[0]);
-        UINT offset = 0;
-
-        ID3D11Buffer* pVertexBuffers[] = {
-            m_VertexBuffer.Get()
-        };
-        m_Context->IASetVertexBuffers(
-            0,
-            _countof(pVertexBuffers),
-            pVertexBuffers,
-            &stride,
-            &offset
-        );
-    }
-
-    // 入力レイアウトにインデックスバッファを設定
-    m_Context->IASetIndexBuffer(m_IndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
-
-    // プリミティブトポロジーの設定
-    m_Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    // 頂点シェーダーを設定
-    m_Context->VSSetShader(m_VertexShader.Get(), nullptr, 0);
-
-    // 頂点シェーダーに定数バッファを設定
-    {
-        m_Context->UpdateSubresource(m_ConstantBuffer.Get(), 0, nullptr, &g_ConstantBufferData, 0, 0);
-
-        ID3D11Buffer* pConstantBuffers[] = {
-            m_ConstantBuffer.Get()
-        };
-        m_Context->VSSetConstantBuffers(0, _countof(pConstantBuffers), pConstantBuffers);
-    }
-
-    // ピクセルシェーダーを設定
-    m_Context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-
-    // ピクセルシェーダーにサンプラーステートを設定
-    {
-        ID3D11SamplerState* pSamplers[] = {
-            m_SamplerState.Get()
-        };
-        m_Context->PSSetSamplers(0, _countof(pSamplers), pSamplers);
-    }
-
-    // ピクセルシェーダーに定数バッファを設定
-    {
-        m_Context->UpdateSubresource(m_ConstantBuffer.Get(), 0, nullptr, &g_ConstantBufferData, 0, 0);
-
-        ID3D11Buffer* pConstantBuffers[] = {
-            m_ConstantBuffer.Get()
-        };
-        m_Context->PSSetConstantBuffers(0, _countof(pConstantBuffers), pConstantBuffers);
-    }
-
-    // ピクセルシェーダーにシェーダーリソースビューを設定
-    {
-        ID3D11ShaderResourceView* pShaderResourceViews[] = {
-            m_ShaderResourceView.Get()
-        };
-        m_Context->PSSetShaderResources(0, _countof(pShaderResourceViews), pShaderResourceViews);
-    }
-
-    // ラスタライザーステートを設定
-    m_Context->RSSetState(m_RasterizerState.Get());
-
     // ブレンドステートを設定
     //m_Context->OMSetBlendState(nullptr, nullptr, 0);
 
     // 深度ステンシルステートを設定
     m_Context->OMSetDepthStencilState(m_DepthStencilState.Get(), 0);
 
-    // 描画
-    m_Context->DrawIndexed(_countof(g_indices), 0, 0);
-
+    // シェイプを描画
+    m_Shape->Draw();
 
     // ビットマップフォント描画
     m_BitmapFont->Flush();
@@ -618,76 +447,6 @@ bool SampleApp::CreateBackBuffer(const Size2D& newSize)
     return true;
 }
 
-// シェーダーを作成
-bool SampleApp::CreateShader(const std::string& vertexShader, const std::string& pixelShader)
-{
-    bool result = Util::CreateVertexShaderAndInputLayout(
-        m_Device,
-        vertexShader,
-        Vertex::pInputElementDescs,
-        Vertex::InputElementCount,
-        m_VertexShader,
-        m_InputLayout
-    );
-    if (!result) { return false; }
-
-    return Util::CreatePixelShader(
-        m_Device,
-        pixelShader,
-        m_PixelShader
-    );
-}
-
-// 頂点バッファを作成
-bool SampleApp::CreateVertexBuffer(const void* pVertices, UINT byteWidth, UINT stride)
-{
-    return Util::CreateBuffer(
-        m_Device,
-        pVertices,
-        byteWidth,
-        D3D11_BIND_VERTEX_BUFFER,
-        stride,
-        m_VertexBuffer
-    );
-}
-
-// インデックスバッファを作成
-bool SampleApp::CreateIndexBuffer(const void* pIndices, UINT byteWidth, UINT stride)
-{
-    return Util::CreateBuffer(
-        m_Device,
-        pIndices,
-        byteWidth,
-        D3D11_BIND_INDEX_BUFFER,
-        stride,
-        m_IndexBuffer
-    );
-}
-
-// 定数バッファを作成
-bool SampleApp::CreateConstantBuffer(const void* pInitData, UINT byteWidth)
-{
-    return Util::CreateBuffer(
-        m_Device,
-        pInitData,
-        byteWidth,
-        D3D11_BIND_CONSTANT_BUFFER,
-        byteWidth,
-        m_ConstantBuffer
-    );
-}
-
-// ラスタライザーステートを作成
-bool SampleApp::CreateRasterizerState()
-{
-    return Util::CreateRasterizerState(
-        m_Device,
-        D3D11_CULL_BACK,
-        TRUE,
-        m_RasterizerState
-    );
-}
-
 // 深度ステンシルステートを作成
 bool SampleApp::CreateDepthStencilState()
 {
@@ -704,66 +463,6 @@ bool SampleApp::CreateDepthStencilState()
         ShowErrorMessage(result, "m_Device->CreateDepthStencilState");
         return false;
     }
-    return true;
-}
-
-// サンプラーステートを作成
-bool SampleApp::CreateSamplerState()
-{
-    return Util::CreateSamplerState(
-        m_Device,
-        D3D11_FILTER_ANISOTROPIC,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        m_SamplerState
-    );
-}
-
-// テクスチャを生成
-bool SampleApp::CreateTextureFromFile(const std::string& fileName)
-{
-    ResultUtil result = Util::CreateTextureFromFile(
-        m_Device,
-        fileName,
-        m_Texture2D,
-        m_ShaderResourceView
-    );
-    if (!result)
-    {
-        ShowErrorMessage(result, "Util::CreateTextureFromFile");
-        return false;
-    }
-
-    return true;
-}
-
-// ファイルの読み込み（バイナリ）
-bool SampleApp::ReadFile(const std::string& fileName, std::vector<BYTE>& out)
-{
-    out.clear();
-
-    ResultUtil result = Util::ReadFile(fileName, out);
-
-    if (!result)
-    {
-        ShowErrorMessage(result, "Util::ReadFile");
-        return false;
-    }
-
-    return true;
-}
-
-// PNG ファイルの読み込み
-bool SampleApp::LoadPng(const std::string& fileName, std::vector<BYTE>& image, DXGI_FORMAT& format, Size2D& size)
-{
-    ResultUtil result = Util::LoadPng(fileName, image, format, size);
-    if (!result)
-    {
-        ShowErrorMessage(result, "Util::LoadPng");
-        return false;
-    }
-
     return true;
 }
 
