@@ -53,6 +53,8 @@ public:
 
     virtual bool IsLoop() const = 0;
 
+    virtual void Sleep(u32 milliSeconds) = 0;
+
     virtual void PostQuit() = 0;
 
     virtual Size2D GetClientSize() const = 0;

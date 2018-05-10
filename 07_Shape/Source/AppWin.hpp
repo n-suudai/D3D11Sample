@@ -17,6 +17,8 @@ public:
 
     virtual bool IsLoop() const override;
 
+    virtual void Sleep(u32 milliSeconds) override;
+
     virtual void PostQuit() override;
 
     virtual Size2D GetClientSize() const override;

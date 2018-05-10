@@ -21,8 +21,11 @@ float4 main(PS_INPUT ps_input) : SV_TARGET
 {
     float3 light = normalize(LightDirection.xyz);
     float diffuse = clamp(dot(ps_input.normal.xyz, light), 0.1, 1.0);
+    float3 halfLE = normalize((LightDirection + EyeDirection).xyz);
+    float specular = pow(clamp(dot(ps_input.normal.xyz, halfLE), 0.0, 1.0), 50.0);
     float4 color = ps_input.color * float4(diffuse, diffuse, diffuse, 1.0);
-
+    color += AmbientColor;
+    color += float4(specular, specular, specular, 1.0);
     return color;
 }
 

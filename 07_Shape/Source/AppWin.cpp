@@ -210,6 +210,14 @@ bool AppWin::IsLoop() const
 }
 
 
+void AppWin::Sleep(u32 milliSeconds)
+{
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(milliSeconds)
+    );
+}
+
+
 void AppWin::PostQuit()
 {
     DestroyWindow(m_hWnd);

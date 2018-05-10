@@ -107,6 +107,8 @@ void AppMain()
     {
         pSample->Update();
         pSample->Render();
+
+        pApp->Sleep(8);
     }
 
     delete pSample;

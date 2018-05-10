@@ -152,7 +152,7 @@ bool SampleApp::Init()
                 m_Device,
                 m_Context
             );
-        m_Shape->InitializeAsTorus(32, 32, 0.5f, 1.5f);
+        m_Shape->InitializeAsTorus(128, 128, 0.5f, 1.5f);
     }
 
     return true;
@@ -180,7 +180,7 @@ void SampleApp::Update()
     // ワールド変換行列を設定
     {
         static f32 rot = 0.0f;
-        rot += 0.0001f;
+        rot += 0.005f;
 
         glm::mat4x4 world = glm::rotate(
             glm::mat4x4(1.0f),
