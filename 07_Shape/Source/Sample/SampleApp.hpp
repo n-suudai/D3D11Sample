@@ -64,7 +64,8 @@ private:
 
 
     std::unique_ptr<BitmapFont> m_BitmapFont;
-    std::unique_ptr<Shape>      m_Shape;
+    std::unique_ptr<Shape>      m_Torus;
+    std::unique_ptr<Shape>      m_Sphere;
 };
 
 

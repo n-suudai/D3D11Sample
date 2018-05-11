@@ -113,7 +113,7 @@ BitmapFont::BitmapFont(
     , m_Projection(projection)
 {
     m_Count = 0;
-    m_CharSpacing = -2.0f;
+    m_CharSpacing = -3.0f;
     m_LineSpacing = 0;
     m_FontScale = 1.0f;
     m_RectMargin = glm::vec4(-2.0f, -2.0f, 2.0f, 2.0f);
@@ -357,7 +357,7 @@ void BitmapFont::Initialize(const std::string& fontName)
     {
         Util::CreateVertexShaderAndInputLayout(
             m_Device,
-            "Resource\\Shader\\FontVS.cso",
+            "Resource\\Shader\\bin\\FontVS.cso",
             Vertex_BitmapFont::pInputElementDescs,
             Vertex_BitmapFont::InputElementCount,
             m_VertexShader,
@@ -369,15 +369,31 @@ void BitmapFont::Initialize(const std::string& fontName)
     {
         Util::CreatePixelShader(
             m_Device,
-            "Resource\\Shader\\FontPS.cso",
+            "Resource\\Shader\\bin\\FontPS.cso",
             m_PixelShader
         );
     }
 
     m_SizePerPix = glm::vec2(1.0f / static_cast<f32>(m_TextureSize.width), 1.0f / static_cast<f32>(m_TextureSize.height));
 
-    // フォント描画縦サイズを取得
-    m_FontHeight = m_Data.chars[static_cast<int>('A')].height + 2.0f;
+    if (!m_Data.info.unicode)
+    {
+        // "あ","Ａ","A" これらの文字から標準フォント描画縦サイズを取得
+        m_FontHeight = 22;
+        static const u16 aTryCode[]{ 0x3042 ,0xFF21 };
+        for (auto & code : aTryCode)
+        {
+            if (m_Data.chars[code].id != 0xFFFF)
+            {
+                m_FontHeight = m_Data.chars[code].height + 2.0f;
+                break;
+            }
+        }
+    }
+    else
+    {
+        m_FontHeight = m_Data.chars[static_cast<int>('A')].height + 2.0f;
+    }
 
     m_Color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     m_CurrentColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);

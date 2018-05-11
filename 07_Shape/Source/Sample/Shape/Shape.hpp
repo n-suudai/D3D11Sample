@@ -27,11 +27,32 @@ public:
     ~Shape();
 
     // トーラスとして初期化
-    void InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad);
+    void InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad, const glm::vec4* pColor = nullptr);
 
-    ConstantBuffer& GetConstantBuffer() { return m_ConstantBufferData; }
+    // 球体として初期化
+    void InitializeAsSphere(u16 row, u16 column, f32 rad, const glm::vec4* pColor = nullptr);
+
+    void Update(
+        const glm::vec3* pTranslate = nullptr,
+        const glm::vec3* pRotate = nullptr,
+        const glm::vec3* pScale = nullptr
+    );
 
     void Draw();
+
+    //------------------------------
+    // 各種設定関数
+    //------------------------------
+
+    void SetAmbientColor(const glm::vec4& ambient) { m_ConstantBufferData.AmbientColor = ambient; }
+
+    void SetLightDirection(const glm::vec4& light) { m_LightDirection = light; }
+
+    void SetEyeDirection(const glm::vec4& eye) { m_EyeDirection = eye; }
+
+    void SetViewMatrix(const glm::mat4x4& view) { m_ViewMatrix = view; }
+
+    void SetProjectionMatrix(const glm::mat4x4& projection) { m_ProjectionMatrix = projection; }
 
 protected:
     void Initialize(
@@ -42,6 +63,12 @@ protected:
     );
 
 protected:
+    glm::vec4   m_LightDirection;
+    glm::vec4   m_EyeDirection;
+    glm::mat4x4 m_ModelMatrix;
+    glm::mat4x4 m_ViewMatrix;
+    glm::mat4x4 m_ProjectionMatrix;
+
     UINT                                m_IndexCount;           // インデックス数
     ConstantBuffer                      m_ConstantBufferData;   // 定数バッファ用データ
     ComPtr<ID3D11Device>                m_Device;               // デバイス

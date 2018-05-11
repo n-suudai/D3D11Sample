@@ -1,5 +1,10 @@
 ﻿
 
+static constexpr f32 PIH = 1.5707963267948966192313216916398f;
+static constexpr f32 PI = 3.1415926535897932384626433832795f;
+static constexpr f32 PI2 = 6.2831853071795864769252867665590f;
+static constexpr f32 DIV_PI = 0.31830988618379067153776752674503f;
+static constexpr f32 DIV_PI2 = 0.15915494309189533576888376337251f;
 
 Shape::Shape(
     const ComPtr<ID3D11Device>& device,
@@ -16,18 +21,12 @@ Shape::~Shape()
 }
 
 // トーラスとして初期化
-void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad)
+void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad, const glm::vec4* pColor)
 {
-    static constexpr f32 PIH = 1.5707963267948966192313216916398f;
-    static constexpr f32 PI = 3.1415926535897932384626433832795f;
-    static constexpr f32 PI2 = 6.2831853071795864769252867665590f;
-    static constexpr f32 DIV_PI = 0.31830988618379067153776752674503f;
-    static constexpr f32 DIV_PI2 = 0.15915494309189533576888376337251f;
-
     std::vector<Vertex> vertices;   // 頂点配列
     std::vector<u16>    indices;    // インデックス配列
 
-                                    // 頂点配列を作成
+    // 頂点配列を作成
     for (u16 ix = 0; ix <= row; ++ix)
     {
         f32 r = PI * 2.0f / row * ix;
@@ -46,11 +45,21 @@ void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad)
             v.Position.w = 1.0f;
 
             // 頂点色
-            glm::vec3 color = glm::rgbColor(glm::vec3(360.0f / column * iy, 1.0f, 1.0f));
-            v.Color.x = color.x;
-            v.Color.y = color.y;
-            v.Color.z = color.z;
-            v.Color.w = 1.0f;
+            if (pColor != nullptr)
+            {
+                v.Color.x = pColor->x;
+                v.Color.y = pColor->y;
+                v.Color.z = pColor->z;
+                v.Color.w = pColor->w;
+            }
+            else
+            {
+                glm::vec3 color = glm::rgbColor(glm::vec3(360.0f / column * iy, 1.0f, 1.0f));
+                v.Color.x = color.x;
+                v.Color.y = color.y;
+                v.Color.z = color.z;
+                v.Color.w = 1.0f;
+            }
 
             // 法線
             v.Normal.x = rr * std::cosf(tr);
@@ -83,9 +92,123 @@ void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad)
     Initialize(
         vertices,
         indices,
-        "Resource\\Shader\\ShapeVS.cso",
-        "Resource\\Shader\\ShapePS.cso"
+        "Resource\\Shader\\bin\\ShapeVS.cso",
+        "Resource\\Shader\\bin\\ShapePS.cso"
     );
+}
+
+// 球体として初期化
+void Shape::InitializeAsSphere(u16 row, u16 column, f32 rad, const glm::vec4* pColor)
+{
+    std::vector<Vertex> vertices;   // 頂点配列
+    std::vector<u16>    indices;    // インデックス配列
+
+    // 頂点配列を作成
+    for (u16 ix = 0; ix <= row; ix++)
+    {
+        f32 r = PI / row * ix;
+        f32 ry = std::cosf(r);
+        f32 rr = std::sinf(r);
+        for (u16 iy = 0; iy <= column; iy++)
+        {
+            Vertex v;
+            f32 tr = PI * 2 / column * iy;
+            
+            // 頂点
+            v.Position.x = rr * rad * std::cosf(tr);
+            v.Position.y = ry * rad;
+            v.Position.z = rr * rad * std::sinf(tr);
+            v.Position.w = 1.0f;
+
+            // 頂点色
+            if (pColor != nullptr)
+            {
+                v.Color.x = pColor->x;
+                v.Color.y = pColor->y;
+                v.Color.z = pColor->z;
+                v.Color.w = pColor->w;
+            }
+            else
+            {
+                glm::vec3 color = glm::rgbColor(glm::vec3(360.0f / row * ix, 1.0f, 1.0f));
+                v.Color.x = color.x;
+                v.Color.y = color.y;
+                v.Color.z = color.z;
+                v.Color.w = 1.0f;
+            }
+
+            // 法線
+            v.Normal.x = rr * std::cosf(tr);
+            v.Normal.y = ry;
+            v.Normal.z = rr * std::sinf(tr);
+            v.Normal.w = 1.0f;
+
+            vertices.push_back(v);
+        }
+    }
+
+    // インデックス配列を作成
+    for (u16 ix = 0; ix < row; ix++)
+    {
+        for (u16 iy = 0; iy < column; iy++)
+        {
+            u16 r = (column + 1) * ix + iy;
+            indices.push_back(r);
+            indices.push_back(r + 1);
+            indices.push_back(r + column + 2);
+            indices.push_back(r);
+            indices.push_back(r + column + 2);
+            indices.push_back(r + column + 1);
+        }
+    }
+
+    // 初期化
+    Initialize(
+        vertices,
+        indices,
+        "Resource\\Shader\\bin\\ShapeVS.cso",
+        "Resource\\Shader\\bin\\ShapePS.cso"
+    );
+}
+
+void Shape::Update(
+    const glm::vec3* pTranslate,
+    const glm::vec3* pRotate,
+    const glm::vec3* pScale
+)
+{
+    m_ModelMatrix = glm::mat4x4(1.0f);
+
+    if (pTranslate != nullptr)
+    {
+        m_ModelMatrix = glm::translate(m_ModelMatrix, *pTranslate);
+    }
+
+    if (pRotate != nullptr)
+    {
+        m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->x, glm::vec3(1.0f, 0.0f, 0.0f));
+        m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->y, glm::vec3(0.0f, 1.0f, 0.0f));
+        m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->z, glm::vec3(0.0f, 0.0f, 1.0f));
+    }
+
+    if (pScale != nullptr)
+    {
+        m_ModelMatrix = glm::scale(m_ModelMatrix, *pScale);
+    }
+
+    // 定数バッファデータ更新
+    {
+        glm::mat4x4 inverseModelMatrix = glm::inverse(m_ModelMatrix);
+
+        m_ConstantBufferData.LightDirection = inverseModelMatrix * m_LightDirection;
+        glm::normalize(m_ConstantBufferData.LightDirection);
+
+        m_ConstantBufferData.EyeDirection = inverseModelMatrix * m_EyeDirection;
+        glm::normalize(m_ConstantBufferData.EyeDirection);
+
+        m_ConstantBufferData.ModelViewProjection = m_ProjectionMatrix * m_ViewMatrix * m_ModelMatrix;
+        m_ConstantBufferData.ModelViewProjection = glm::transpose(m_ConstantBufferData.ModelViewProjection);
+    }
 }
 
 void Shape::Draw()

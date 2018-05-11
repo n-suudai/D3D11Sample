@@ -142,17 +142,69 @@ bool SampleApp::Init()
                 m_Context,
                 projection
             );
+        m_BitmapFont->Initialize("Arial");
     }
-
-    m_BitmapFont->Initialize("Meiryo");
 
     // シェイプを生成
     {
-        m_Shape = std::make_unique<Shape>(
+        m_Torus = std::make_unique<Shape>(
                 m_Device,
                 m_Context
             );
-        m_Shape->InitializeAsTorus(128, 128, 0.5f, 1.5f);
+        m_Torus->InitializeAsTorus(128, 128, 0.5f, 1.5f, nullptr);
+
+        m_Sphere = std::make_unique<Shape>(
+            m_Device,
+            m_Context
+            );
+        m_Sphere->InitializeAsSphere(128, 128, 1.0f, nullptr);
+
+        // 平行光設定
+        {
+            glm::vec4 lightDirection(8.0f, 2.8f, 6.0f, 1.0f);
+            m_Torus->SetLightDirection(lightDirection);
+            m_Sphere->SetLightDirection(lightDirection);
+        }
+
+        // 環境光設定
+        {
+            glm::vec4 ambientColor(0.1f, 0.1f, 0.1f, 1.0f);
+            m_Torus->SetAmbientColor(ambientColor);
+            m_Sphere->SetAmbientColor(ambientColor);
+        }
+
+        // 視線ベクトル & ビュー行列 設定
+        {
+            glm::vec3 eye(0.0f, 2.8f, 6.0f);
+            glm::vec3 center(0.0f, 0.0f, 0.0f);
+
+            glm::mat4x4 view = glm::lookAtLH(
+                eye,
+                center,
+                glm::vec3(0.0f, 1.0f, 0.0f)
+            );
+
+            glm::vec3 eyeDirection = eye - center;
+            m_Torus->SetEyeDirection(glm::vec4(eyeDirection.x, eyeDirection.y, eyeDirection.z, 1.0f));
+            m_Sphere->SetEyeDirection(glm::vec4(eyeDirection.x, eyeDirection.y, eyeDirection.z, 1.0f));
+
+            m_Torus->SetViewMatrix(view);
+            m_Sphere->SetViewMatrix(view);
+        }
+
+        // プロジェクション行列設定
+        {
+            glm::mat4x4 projection = glm::perspectiveFovLH(
+                glm::radians(45.0f),
+                static_cast<f32>(clientSize.width),
+                static_cast<f32>(clientSize.height),
+                0.01f,
+                100.0f
+            );
+
+            m_Torus->SetProjectionMatrix(projection);
+            m_Sphere->SetProjectionMatrix(projection);
+        }
     }
 
     return true;
@@ -167,65 +219,21 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
-    m_BitmapFont->Put(glm::vec2(10.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "SAMPLE");
+    m_BitmapFont->Put(glm::vec2(10.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "Sample");
 
-    glm::mat4x4 invWorld;
-    glm::mat4x4 modelViewProjection;
-
-    glm::vec4 lightDirection(0.5f, 0.5f, 0.5f, 1.0f);
-    glm::vec4 eyeDirection(0.0f, 2.8f, 6.0f, 1.0f);
-
-    m_Shape->GetConstantBuffer().AmbientColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
-
-    // ワールド変換行列を設定
     {
-        static f32 rot = 0.0f;
-        rot += 0.005f;
+        static f32 delta = 0.0f;
+        delta += 0.003f;
 
-        glm::mat4x4 world = glm::rotate(
-            glm::mat4x4(1.0f),
-            rot,
-            glm::vec3(0.0f, 1.0f, 0.0f)
-        );
+        glm::vec3 translate(2.0f, 0.0f, 0.0f);
+        glm::vec3 rotate(0.0f, delta, delta);
+        glm::vec3 scale(0.5f, 0.5f, 0.5f);
+        m_Torus->Update(&translate, &rotate, &scale);
 
-        invWorld = glm::inverse(world);
-
-        modelViewProjection = world;
-
-        m_Shape->GetConstantBuffer().LightDirection = invWorld * lightDirection;
-        m_Shape->GetConstantBuffer().EyeDirection = invWorld * eyeDirection;
+        translate = glm::vec3(-2.0f, 0.0f, 0.0f);
+        rotate = glm::vec3(0.0f, delta, delta);
+        m_Sphere->Update(&translate, &rotate, &scale);
     }
-
-    // ビュー変換行列を設定
-    {
-        glm::mat4x4 view = glm::lookAtLH(
-            glm::vec3(eyeDirection.x, eyeDirection.y, eyeDirection.z),
-            glm::vec3(0.0f, -0.1f, 0.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f)
-        );
-
-        //modelViewProjection *= view;
-        modelViewProjection = view * modelViewProjection;
-    }
-
-    // プロジェクション行列を設定
-    {
-        const Size2D& clientSize = m_pApp->GetClientSize();
-
-        glm::mat4x4 projection = glm::perspectiveFovLH(
-            glm::radians(45.0f),
-            static_cast<f32>(clientSize.width),
-            static_cast<f32>(clientSize.height),
-            0.01f,
-            100.0f
-        );
-
-        //modelViewProjection *= projection;
-        modelViewProjection = projection * modelViewProjection;
-    }
-
-    m_Shape->GetConstantBuffer().ModelViewProjection =
-        glm::transpose(modelViewProjection);
 }
 
 // 描画処理
@@ -248,7 +256,8 @@ void SampleApp::Render()
     m_Context->OMSetDepthStencilState(m_DepthStencilState.Get(), 0);
 
     // シェイプを描画
-    m_Shape->Draw();
+    m_Torus->Draw();
+    m_Sphere->Draw();
 
     // ビットマップフォント描画
     m_BitmapFont->Flush();
