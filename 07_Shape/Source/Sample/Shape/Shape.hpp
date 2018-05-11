@@ -52,7 +52,6 @@ protected:
     ComPtr<ID3D11VertexShader>          m_VertexShader;         // 頂点シェーダー
     ComPtr<ID3D11PixelShader>           m_PixelShader;          // ピクセルシェーダー
     ComPtr<ID3D11InputLayout>           m_InputLayout;          // 入力レイアウト
-    ComPtr<ID3D11SamplerState>          m_SamplerState;         // フォント描画用サンプラー
     ComPtr<ID3D11RasterizerState>       m_RasterizerState;      // ラスタライザーステート
     ComPtr<ID3D11BlendState>            m_BlendState;           // ブレンドステート
 };

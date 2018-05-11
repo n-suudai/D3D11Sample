@@ -63,9 +63,9 @@ void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad)
     }
 
     // インデックス配列を作成
-    for (u16 ix = 0; ix <= row; ++ix)
+    for (u16 ix = 0; ix < row; ++ix)
     {
-        for (u16 iy = 0; iy <= column; ++iy)
+        for (u16 iy = 0; iy < column; ++iy)
         {
             u16 r = (column + 1) * ix + iy;
 
@@ -139,14 +139,6 @@ void Shape::Draw()
 
     // ピクセルシェーダーを設定
     m_Context->PSSetShader(m_PixelShader.Get(), nullptr, 0);
-
-    // ピクセルシェーダーにサンプラーステートを設定
-    {
-        ID3D11SamplerState* pSamplers[] = {
-            m_SamplerState.Get()
-        };
-        m_Context->PSSetSamplers(0, _countof(pSamplers), pSamplers);
-    }
 
     // ピクセルシェーダーに定数バッファを設定
     {
@@ -244,16 +236,6 @@ void Shape::Initialize(
     Util::CreateBlendState(
         m_Device,
         m_BlendState
-    );
-
-    // サンプラーステート
-    Util::CreateSamplerState(
-        m_Device,
-        D3D11_FILTER_ANISOTROPIC,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        D3D11_TEXTURE_ADDRESS_WRAP,
-        m_SamplerState
     );
 }
 
