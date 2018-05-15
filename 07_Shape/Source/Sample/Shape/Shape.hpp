@@ -2,9 +2,6 @@
 #pragma once
 
 
-
-
-
 class Shape
 {
 public:
@@ -13,10 +10,17 @@ public:
         glm::mat4x4 ModelViewProjection;    // 転送行列
         glm::vec4   LightDirection;         // 平行光      ※逆行列で変換済み
         glm::vec4   EyeDirection;           // 視線ベクトル ※逆行列で変換済み
-        glm::vec4   AmbientColor;           // 環境光の色
+
+
+        glm::vec4   DiffuseColor;           // ディフューズ
+        glm::vec4   AmbientColor;           // アンビエント
+        glm::vec4   SpecularColor;          // スペキュラ    w : power
+        glm::vec4   EmissiveColor;          // エミッシブ
+
+        void Initialize();
     };
 
-    using Vertex = Vertex_PositionColorNormal;
+    using Vertex = Vertex_PositionColorNormalTexture;
 
 public:
     Shape(
@@ -44,15 +48,21 @@ public:
     // 各種設定関数
     //------------------------------
 
-    void SetAmbientColor(const glm::vec4& ambient) { m_ConstantBufferData.AmbientColor = ambient; }
+    void SetAmbientColor(const glm::vec4& ambient) { m_ConstantBufferData.AmbientColor = ambient; m_bUpdateContantBuffer = true; }
 
-    void SetLightDirection(const glm::vec4& light) { m_LightDirection = light; }
+    void SetDiffuseColor(const glm::vec4& diffuse) { m_ConstantBufferData.DiffuseColor = diffuse; m_bUpdateContantBuffer = true; }
 
-    void SetEyeDirection(const glm::vec4& eye) { m_EyeDirection = eye; }
+    void SetSpecularColor(const glm::vec4& specular) { m_ConstantBufferData.SpecularColor = specular; m_bUpdateContantBuffer = true; }
 
-    void SetViewMatrix(const glm::mat4x4& view) { m_ViewMatrix = view; }
+    void SetEmissiveColor(const glm::vec4& emissive) { m_ConstantBufferData.EmissiveColor = emissive; m_bUpdateContantBuffer = true; }
 
-    void SetProjectionMatrix(const glm::mat4x4& projection) { m_ProjectionMatrix = projection; }
+    void SetLightDirection(const glm::vec4& light) { m_LightDirection = light; m_bUpdateContantBuffer = true; }
+
+    void SetEyeDirection(const glm::vec4& eye) { m_EyeDirection = eye; m_bUpdateContantBuffer = true; }
+
+    void SetViewMatrix(const glm::mat4x4& view) { m_ViewMatrix = view; m_bUpdateContantBuffer = true; }
+
+    void SetProjectionMatrix(const glm::mat4x4& projection) { m_ProjectionMatrix = projection; m_bUpdateContantBuffer = true; }
 
 protected:
     void Initialize(
@@ -63,11 +73,12 @@ protected:
     );
 
 protected:
-    glm::vec4   m_LightDirection;
-    glm::vec4   m_EyeDirection;
-    glm::mat4x4 m_ModelMatrix;
-    glm::mat4x4 m_ViewMatrix;
-    glm::mat4x4 m_ProjectionMatrix;
+    bool        m_bUpdateContantBuffer; // 定数バッファ更新フラグ
+    glm::vec4   m_LightDirection;       // 平行光 逆行列変換前 
+    glm::vec4   m_EyeDirection;         // 視線ベクトル 逆行列変換前
+    glm::mat4x4 m_ModelMatrix;          // モデル転送行列
+    glm::mat4x4 m_ViewMatrix;           // ビュー行列
+    glm::mat4x4 m_ProjectionMatrix;     // プロジェクション行列
 
     UINT                                m_IndexCount;           // インデックス数
     ConstantBuffer                      m_ConstantBufferData;   // 定数バッファ用データ
@@ -81,6 +92,12 @@ protected:
     ComPtr<ID3D11InputLayout>           m_InputLayout;          // 入力レイアウト
     ComPtr<ID3D11RasterizerState>       m_RasterizerState;      // ラスタライザーステート
     ComPtr<ID3D11BlendState>            m_BlendState;           // ブレンドステート
+    ComPtr<ID3D11SamplerState>          m_SamplerState;         // サンプラーステート
+
+    std::unique_ptr<Texture>    m_DiffuseTexture;
+    std::unique_ptr<Texture>    m_AmbientTexture;
+    std::unique_ptr<Texture>    m_SpecularTexture;
+    std::unique_ptr<Texture>    m_EmissiveTexture;
 };
 
 

@@ -92,6 +92,7 @@ typedef double f64;
 #include "App.hpp"
 #include "AppWin.hpp"
 #include "Sample/ResultUtil.hpp"
+#include "Sample/Graphics/Texture.hpp"
 #include "Sample/Vertex.hpp"
 #include "Sample/Font/BitmapFont.hpp"
 #include "Sample/Shape/Shape.hpp"

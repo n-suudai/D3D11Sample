@@ -6,13 +6,28 @@ static constexpr f32 PI2 = 6.2831853071795864769252867665590f;
 static constexpr f32 DIV_PI = 0.31830988618379067153776752674503f;
 static constexpr f32 DIV_PI2 = 0.15915494309189533576888376337251f;
 
+
+void Shape::ConstantBuffer::Initialize()
+{
+    ModelViewProjection = glm::mat4x4(1);
+    LightDirection = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    EyeDirection = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    DiffuseColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    AmbientColor = glm::vec4(0.1f, 0.1f, 0.1f, 1.0f);
+    SpecularColor = glm::vec4(1.0f, 1.0f, 1.0f, 50.0f);
+    EmissiveColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+}
+
+
 Shape::Shape(
     const ComPtr<ID3D11Device>& device,
     const ComPtr<ID3D11DeviceContext> context
 )
+    : m_Device(device)
+    , m_Context(context)
 {
-    m_Device = device;
-    m_Context = context;
+    m_ConstantBufferData.Initialize();
 }
 
 Shape::~Shape()
@@ -66,6 +81,15 @@ void Shape::InitializeAsTorus(u16 row, u16 column, f32 irad, f32 orad, const glm
             v.Normal.y = ry;
             v.Normal.z = rr * std::sinf(tr);
             v.Normal.w = 1.0f;
+
+            // テクスチャ座標
+            v.Texture.x = 1.0f / column * iy;
+            v.Texture.y = 1.0f / row * ix + 0.5f;
+            if (v.Texture.y > 1.0f)
+            {
+                v.Texture.y -= 1.0f;
+            }
+            v.Texture.y = 1.0f - v.Texture.y;
 
             vertices.push_back(v);
         }
@@ -143,6 +167,10 @@ void Shape::InitializeAsSphere(u16 row, u16 column, f32 rad, const glm::vec4* pC
             v.Normal.z = rr * std::sinf(tr);
             v.Normal.w = 1.0f;
 
+            // テクスチャ座標
+            v.Texture.x = 1.0f - 1.0f / column * iy;
+            v.Texture.y = 1.0f / row * ix;
+
             vertices.push_back(v);
         }
     }
@@ -182,6 +210,7 @@ void Shape::Update(
     if (pTranslate != nullptr)
     {
         m_ModelMatrix = glm::translate(m_ModelMatrix, *pTranslate);
+        m_bUpdateContantBuffer = true;
     }
 
     if (pRotate != nullptr)
@@ -189,14 +218,17 @@ void Shape::Update(
         m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->x, glm::vec3(1.0f, 0.0f, 0.0f));
         m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->y, glm::vec3(0.0f, 1.0f, 0.0f));
         m_ModelMatrix = glm::rotate(m_ModelMatrix, pRotate->z, glm::vec3(0.0f, 0.0f, 1.0f));
+        m_bUpdateContantBuffer = true;
     }
 
     if (pScale != nullptr)
     {
         m_ModelMatrix = glm::scale(m_ModelMatrix, *pScale);
+        m_bUpdateContantBuffer = true;
     }
 
     // 定数バッファデータ更新
+    if(m_bUpdateContantBuffer)
     {
         glm::mat4x4 inverseModelMatrix = glm::inverse(m_ModelMatrix);
 
@@ -245,14 +277,18 @@ void Shape::Draw()
     // 頂点シェーダーに定数バッファを設定
     {
         // 定数バッファを更新
-        m_Context->UpdateSubresource(
-            m_ConstantBuffer.Get(),
-            0,
-            nullptr,
-            &m_ConstantBufferData,
-            0,
-            0
-        );
+        if (m_bUpdateContantBuffer)
+        {
+            m_Context->UpdateSubresource(
+                m_ConstantBuffer.Get(),
+                0,
+                nullptr,
+                &m_ConstantBufferData,
+                0,
+                0
+            );
+            m_bUpdateContantBuffer = false;
+        }
 
         ID3D11Buffer* pConstantBuffers[] = {
             m_ConstantBuffer.Get()
@@ -271,11 +307,42 @@ void Shape::Draw()
         m_Context->PSSetConstantBuffers(0, _countof(pConstantBuffers), pConstantBuffers);
     }
 
+    // ピクセルシェーダーにサンプラーステートを設定
+    {
+        ID3D11SamplerState* pSamplerStates[] = {
+            m_SamplerState.Get()
+        };
+        m_Context->PSSetSamplers(0, _countof(pSamplerStates), pSamplerStates);
+    }
+
     // ラスタライザーステートを設定
     m_Context->RSSetState(m_RasterizerState.Get());
 
     // ブレンドステートを設定
     m_Context->OMSetBlendState(m_BlendState.Get(), nullptr, 0xFFFFFFFF);
+
+    // テクスチャをバインド
+    {
+        if (m_DiffuseTexture)
+        {
+            m_DiffuseTexture->Bind(0);
+        }
+
+        if (m_AmbientTexture)
+        {
+            m_AmbientTexture->Bind(1);
+        }
+
+        if (m_SpecularTexture)
+        {
+            m_SpecularTexture->Bind(2);
+        }
+
+        if (m_EmissiveTexture)
+        {
+            m_EmissiveTexture->Bind(3);
+        }
+    }
 
     m_Context->DrawIndexed(m_IndexCount, 0, 0);
 }
@@ -360,5 +427,48 @@ void Shape::Initialize(
         m_Device,
         m_BlendState
     );
+
+    // サンプラーステート
+    Util::CreateSamplerState(
+        m_Device,
+        D3D11_FILTER_ANISOTROPIC,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        D3D11_TEXTURE_ADDRESS_WRAP,
+        m_SamplerState
+    );
+
+    // テクスチャ
+    {
+        m_DiffuseTexture = std::make_unique<Texture>(
+            m_Device,
+            m_Context
+            );
+        m_DiffuseTexture->Initialize("..\\Assets\\Image\\icon.png");
+
+        //m_AmbientTexture = std::make_unique<Texture>(
+        //    m_Device,
+        //    m_Context
+        //    );
+        //m_AmbientTexture->Initialize("..\\Assets\\Image\\icon.png");
+
+        //m_SpecularTexture = std::make_unique<Texture>(
+        //    m_Device,
+        //    m_Context
+        //    );
+        //m_SpecularTexture->Initialize("..\\Assets\\Image\\icon.png");
+
+        //m_EmissiveTexture = std::make_unique<Texture>(
+        //    m_Device,
+        //    m_Context
+        //    );
+        //m_EmissiveTexture->Initialize("..\\Assets\\Image\\icon.png");
+    }
+
+    m_ViewMatrix = glm::mat4x4(1);
+    m_ProjectionMatrix = glm::mat4x4(1);
+    m_ModelMatrix = glm::mat4x4(1);
+
+    m_bUpdateContantBuffer = true;
 }
 

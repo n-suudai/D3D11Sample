@@ -180,6 +180,10 @@
       </SubType>
     </ClInclude>
     <ClInclude Include="Source\Sample\Font\BitmapFont.hpp" />
+    <ClInclude Include="Source\Sample\Graphics\Texture.hpp">
+      <SubType>
+      </SubType>
+    </ClInclude>
     <ClInclude Include="Source\Sample\ResultUtil.hpp">
       <SubType>
       </SubType>
@@ -227,6 +231,10 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Source\Sample\Font\BitmapFont.cpp" />
+    <ClCompile Include="Source\Sample\Graphics\Texture.cpp">
+      <SubType>
+      </SubType>
+    </ClCompile>
     <ClCompile Include="Source\Sample\lodepngBuild.cpp">
       <SubType>
       </SubType>
