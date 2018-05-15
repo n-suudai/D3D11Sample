@@ -444,7 +444,7 @@ void Shape::Initialize(
             m_Device,
             m_Context
             );
-        m_DiffuseTexture->Initialize("..\\Assets\\Image\\icon.png");
+        m_DiffuseTexture->Initialize("..\\Assets\\Image\\metal.png");
 
         //m_AmbientTexture = std::make_unique<Texture>(
         //    m_Device,
@@ -452,11 +452,11 @@ void Shape::Initialize(
         //    );
         //m_AmbientTexture->Initialize("..\\Assets\\Image\\icon.png");
 
-        //m_SpecularTexture = std::make_unique<Texture>(
-        //    m_Device,
-        //    m_Context
-        //    );
-        //m_SpecularTexture->Initialize("..\\Assets\\Image\\icon.png");
+        m_SpecularTexture = std::make_unique<Texture>(
+            m_Device,
+            m_Context
+            );
+        m_SpecularTexture->Initialize("..\\Assets\\Image\\metal_specular.png");
 
         //m_EmissiveTexture = std::make_unique<Texture>(
         //    m_Device,

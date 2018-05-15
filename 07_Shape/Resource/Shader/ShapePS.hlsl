@@ -39,7 +39,7 @@ float4 main(PS_INPUT ps_input) : SV_TARGET
 
     float4 diffuseColor  = diffuseTexture.Sample(linearSampler, ps_input.tex);
     float4 ambientColor  = float4(1.0, 1.0, 1.0, 1.0);
-    float4 specularColor = float4(1.0, 1.0, 1.0, 1.0);
+    float4 specularColor = specularTexture.Sample(linearSampler, ps_input.tex);
     float4 emissiveColor = float4(1.0, 1.0, 1.0, 1.0);
 
     diffuseColor  = diffuseColor  * DiffuseColor;

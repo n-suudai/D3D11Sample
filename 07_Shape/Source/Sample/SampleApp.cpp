@@ -147,17 +147,18 @@ bool SampleApp::Init()
 
     // シェイプを生成
     {
+        glm::vec4 color(1.0f, 1.0f, 1.0f, 1.0f);
         m_Torus = std::make_unique<Shape>(
                 m_Device,
                 m_Context
             );
-        m_Torus->InitializeAsTorus(128, 128, 0.5f, 1.5f, nullptr);
+        m_Torus->InitializeAsTorus(128, 128, 0.5f, 1.5f, &color);
 
         m_Sphere = std::make_unique<Shape>(
             m_Device,
             m_Context
             );
-        m_Sphere->InitializeAsSphere(128, 128, 1.0f, nullptr);
+        m_Sphere->InitializeAsSphere(128, 128, 1.0f, &color);
 
         // 平行光設定
         {
