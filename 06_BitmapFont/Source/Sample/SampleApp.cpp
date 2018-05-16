@@ -262,7 +262,7 @@ bool SampleApp::Init()
             );
     }
 
-    m_BitmapFont->Initialize("Meiryo");
+    m_BitmapFont->Initialize("Arial");
 
     return true;
 }
