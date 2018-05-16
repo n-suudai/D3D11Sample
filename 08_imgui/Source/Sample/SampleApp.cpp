@@ -4,6 +4,8 @@
 // DXGI & D3D11 のライブラリをリンク
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "D3DCompiler.lib")
+#pragma comment(lib, "dxguid.lib")
 
 
 SampleApp::SampleApp(IApp* pApp)
@@ -207,13 +209,20 @@ bool SampleApp::Init()
         }
     }
 
+    // imgui 初期化
+    if (!InitializeImGui())
+    {
+        return false;
+    }
+
     return true;
 }
 
 // 解放
 void SampleApp::Term()
 {
-
+    // imgui 解放
+    TerminateImGui();
 }
 
 // 更新処理
@@ -234,6 +243,16 @@ void SampleApp::Update()
         rotate = glm::vec3(0.0f, delta, delta);
         m_Sphere->Update(&translate, &rotate, &scale);
     }
+
+    ImGui::SetNextWindowSize(ImVec2(320, 100), ImGuiSetCond_Once);
+    ImGui::Begin("hoge");
+
+    ImGui::Text("Hello, world %d", 123);
+
+    ImGui::End();
+
+    // imgui 描画
+    ImGui::Render();
 }
 
 // 描画処理
@@ -262,6 +281,8 @@ void SampleApp::Render()
     // ビットマップフォント描画
     m_BitmapFont->Flush();
 
+    // imgui 描画
+    RenderImGui();
 
     // 結果をウインドウに反映
     ResultUtil result = m_SwapChain->Present(0, 0);
@@ -482,5 +503,41 @@ void SampleApp::ShowErrorMessage(const ResultUtil& result, const std::string& te
         result.GetText() + "\n\n" + text,
         "エラー"
     );
+}
+
+// imgui 初期化
+bool SampleApp::InitializeImGui()
+{
+    ImGui::CreateContext();
+
+    ResultUtil result =  ImGui_ImplDX11_Init(
+        m_pApp->GetWindowHandle(),
+        m_Device.Get(),
+        m_Context.Get()
+    );
+    if (!result)
+    {
+        ShowErrorMessage(result, "ImGui_ImplDX11_Init");
+        return false;
+    }
+
+    ImGui_ImplDX11_NewFrame();
+    return true;
+}
+
+// imgui 解放
+void SampleApp::TerminateImGui()
+{
+    // imgui 解放
+    ImGui_ImplDX11_Shutdown();
+
+    ImGui::DestroyContext();
+}
+
+// imgui 描画
+void SampleApp::RenderImGui()
+{
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplDX11_NewFrame();
 }
 

@@ -16,6 +16,8 @@
 #pragma warning(pop)
 
 #include "lodepng/lodepng.h"
+#include "imgui/imgui.h"
+#include "imgui/examples/directx11_example/imgui_impl_dx11.h"
 
 
 //-----------------------------------------------------------------
