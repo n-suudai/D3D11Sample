@@ -25,6 +25,17 @@ void Texture::Initialize(const std::string& fileName)
     );
 }
 
+void Texture::Initialize(const unsigned char* pData, size_t length)
+{
+    Util::CreateTextureFromData(
+        m_Device,
+        (unsigned char*)pData,
+        length,
+        m_Texture2D,
+        m_ShaderResourceView
+    );
+}
+
 void Texture::Bind(u32 iSlot)
 {
     ID3D11ShaderResourceView* pShaderResourceViews[] = {

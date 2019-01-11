@@ -261,6 +261,51 @@ inline bool ReadFile(const std::string& fileName, std::vector<BYTE>& out)
 }
 
 
+inline bool LoadPngFromData(unsigned char* pData, size_t length, std::vector<BYTE>& image, DXGI_FORMAT& format, Size2D& size)
+{
+    ResultUtil result;
+
+    std::vector<BYTE> png;
+    for (size_t i = 0; i < length; ++i)
+    {
+        png.push_back(pData[i]);
+    }
+
+    LodePNGColorType cType = (LodePNGColorType)png[25];
+    LodePNGColorType cOutType = LCT_RGBA;
+
+    format = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+    switch (cType)
+    {
+    case LCT_GREY:
+        format = DXGI_FORMAT_R8_UNORM;
+        cOutType = cType;
+        break;
+    case LCT_GREY_ALPHA:
+        format = DXGI_FORMAT_A8_UNORM;
+        cOutType = cType;
+        break;
+    case LCT_RGB:
+        format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        cOutType = LCT_RGBA;
+        break;
+    default:
+        break;
+    }
+
+    unsigned int error = lodepng::decode(image, size.width, size.height, png, cOutType);
+    result = ResultUtil(error == 0, lodepng_error_text(error));
+    if (!result)
+    {
+        ShowErrorMessage(result, "lodepng::decode");
+        return false;
+    }
+
+    return true;
+}
+
+
 inline bool LoadPng(const std::string& fileName, std::vector<BYTE>& image, DXGI_FORMAT& format, Size2D& size)
 {
     ResultUtil result;
@@ -380,6 +425,77 @@ inline bool CreateTextureFromFile(
     return true;
 }
 
+
+inline bool CreateTextureFromData(
+    const ComPtr<ID3D11Device>& device,
+    unsigned char* pData,
+    size_t length,
+    ComPtr<ID3D11Texture2D>& outTexture2D,
+    ComPtr<ID3D11ShaderResourceView>& outShaderResourceView
+)
+{
+    std::vector<unsigned char> image;
+    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    Size2D size = { 0 };
+
+    // PNG 読み込み
+    if (!LoadPngFromData(pData, length, image, format, size))
+    {
+        return false;
+    }
+
+    void* pImage = &image[0];
+    CD3D11_TEXTURE2D_DESC texture2DDesc(
+        format,
+        static_cast<UINT>(size.width),
+        static_cast<UINT>(size.height),
+        1,
+        1,
+        D3D11_BIND_SHADER_RESOURCE
+    );
+
+    D3D11_SUBRESOURCE_DATA subresourceData;
+    ZeroMemory(&subresourceData, sizeof(subresourceData));
+
+    subresourceData.pSysMem = pImage;
+    subresourceData.SysMemPitch = DXGIFormatSystemPitch(format, static_cast<UINT>(size.width));
+    subresourceData.SysMemSlicePitch = static_cast<UINT>(image.size());
+
+    // テクスチャを生成
+    ResultUtil result = device->CreateTexture2D(
+        &texture2DDesc,
+        &subresourceData,
+        &outTexture2D
+    );
+    if (!result)
+    {
+        ShowErrorMessage(result, "device->CreateTexture2D");
+        return false;
+    }
+
+    // シェーダーリソースビューを生成
+    {
+        CD3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc(
+            D3D11_SRV_DIMENSION_TEXTURE2D,
+            format,
+            0,
+            texture2DDesc.MipLevels
+        );
+
+        // シェーダーリソースビューを生成
+        result = device->CreateShaderResourceView(
+            outTexture2D.Get(),
+            &shaderResourceViewDesc,
+            &outShaderResourceView
+        );
+        if (!result)
+        {
+            ShowErrorMessage(result, "device->CreateShaderResourceView");
+            return false;
+        }
+    }
+    return true;
+}
 
 inline bool CreateTextureArrayFromFile(
     const ComPtr<ID3D11Device>& device,

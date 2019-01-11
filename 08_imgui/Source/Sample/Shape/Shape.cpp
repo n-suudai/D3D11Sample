@@ -1,4 +1,6 @@
 ﻿
+#include "../../EasingList.hpp"
+
 
 static constexpr f32 PIH = 1.5707963267948966192313216916398f;
 static constexpr f32 PI = 3.1415926535897932384626433832795f;
@@ -444,7 +446,8 @@ void Shape::Initialize(
             m_Device,
             m_Context
             );
-        m_DiffuseTexture->Initialize("..\\Assets\\Image\\metal.png");
+
+        m_DiffuseTexture->Initialize(GetEasingListData(), GetEasingListLength());
 
         //m_AmbientTexture = std::make_unique<Texture>(
         //    m_Device,

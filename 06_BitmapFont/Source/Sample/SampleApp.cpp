@@ -262,7 +262,7 @@ bool SampleApp::Init()
             );
     }
 
-    m_BitmapFont->Initialize("Arial");
+    m_BitmapFont->Initialize("test");
 
     return true;
 }
@@ -276,7 +276,7 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
-    m_BitmapFont->Put(glm::vec2(10.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "SAMPLE");
+    m_BitmapFont->Put(glm::vec2(10.0f, 10.0f), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f), "魑魅魍魎複雑なサンプルと、思う");
 
     // ワールド変換行列を設定
     {
@@ -330,6 +330,12 @@ void SampleApp::Update()
 // 描画処理
 void SampleApp::Render()
 {
+    // レンダーターゲットを設定
+    ID3D11RenderTargetView* pRenderTargetViews[] = {
+        m_RenderTargetView.Get()
+    };
+    m_Context->OMSetRenderTargets(_countof(pRenderTargetViews), pRenderTargetViews, m_DepthStencilView.Get());
+
     // 指定色でクリア
     {
         // red, green, blue, alpha
@@ -420,6 +426,10 @@ void SampleApp::Render()
     // 描画
     m_Context->DrawIndexed(_countof(g_indices), 0, 0);
 
+
+
+    // レンダーターゲットを設定 深度バッファを無効に
+    m_Context->OMSetRenderTargets(_countof(pRenderTargetViews), pRenderTargetViews, nullptr);
 
     // ビットマップフォント描画
     m_BitmapFont->Flush();

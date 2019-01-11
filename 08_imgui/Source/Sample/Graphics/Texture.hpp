@@ -14,6 +14,8 @@ public:
 
     void Initialize(const std::string& fileName);
 
+    void Initialize(const unsigned char* pData, size_t length);
+
     void Bind(u32 iSlot = 0);
 
 protected:

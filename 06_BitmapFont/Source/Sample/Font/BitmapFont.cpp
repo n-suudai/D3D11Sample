@@ -113,7 +113,7 @@ BitmapFont::BitmapFont(
     , m_Projection(projection)
 {
     m_Count = 0;
-    m_CharSpacing = -2.0f;
+    m_CharSpacing = 0.0f;
     m_LineSpacing = 0;
     m_FontScale = 1.0f;
     m_RectMargin = glm::vec4(-2.0f, -2.0f, 2.0f, 2.0f);
@@ -559,6 +559,10 @@ void BitmapFont::PutVertex(const FontCharacter* pCharPrev, const FontCharacter* 
     //  [1]右上
     //	[2]左下
     //	[3]右下
+    pVtx[0].Channel = GetChannelColor(pChar->chnl);
+    pVtx[1].Channel = pVtx[0].Channel;
+    pVtx[2].Channel = pVtx[0].Channel;
+    pVtx[3].Channel = pVtx[0].Channel;
     pVtx[0].Position.x = x;
     pVtx[1].Position.x = x + (pChar->width * m_FontScale);
     pVtx[2].Position.x = x;
@@ -603,5 +607,15 @@ FontKerning* BitmapFont::GetKering(const FontCharacter* pCharLeft, const FontCha
     }
 
     return pKerning;
+}
+
+u32 BitmapFont::GetChannelColor(u8 channel) const
+{
+    u32 color =
+        (channel & ChannelFlag_Alpha ? 255 : 0) << 24 |
+        (channel & ChannelFlag_Blue ? 255 : 0) << 16 |
+        (channel & ChannelFlag_Green ? 255 : 0) << 8 |
+        (channel & ChannelFlag_Red ? 255 : 0);
+    return color;
 }
 

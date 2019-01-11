@@ -12,6 +12,7 @@
     <ClInclude Include="Source\Sample\Font\BitmapFont.hpp" />
     <ClInclude Include="Source\Sample\Shape\Shape.hpp" />
     <ClInclude Include="Source\Sample\Graphics\Texture.hpp" />
+    <ClInclude Include="Source\EasingList.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\PCH.cpp" />
@@ -24,6 +25,7 @@
     <ClCompile Include="Source\Sample\Shape\Shape.cpp" />
     <ClCompile Include="Source\Sample\Graphics\Texture.cpp" />
     <ClCompile Include="Source\Sample\ExternalBuild.cpp" />
+    <ClCompile Include="Source\EasingList.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Resource\Shader\FontVS.hlsl" />
