@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="Source\App.hpp" />
+    <ClInclude Include="Source\PCH.hpp" />
+    <ClInclude Include="Source\KeyCode.hpp" />
+    <ClInclude Include="Source\AppWin.hpp" />
+    <ClInclude Include="Source\Sample\SampleApp.hpp" />
+    <ClInclude Include="Source\Sample\ResultUtil.hpp" />
+    <ClInclude Include="Source\Sample\Vertex.hpp" />
+    <ClInclude Include="Source\Sample\Utility.hpp" />
+    <ClInclude Include="Source\Sample\Font\BitmapFont.hpp" />
+    <ClInclude Include="Source\Sample\Shape\Shape.hpp" />
+    <ClInclude Include="Source\Sample\Graphics\Texture.hpp" />
+    <ClInclude Include="Source\Sample\Shader\Shader.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Source\PCH.cpp" />
+    <ClCompile Include="Source\WinMain.cpp" />
+    <ClCompile Include="Source\AppWin.cpp" />
+    <ClCompile Include="Source\AppMain.cpp" />
+    <ClCompile Include="Source\Sample\SampleApp.cpp" />
+    <ClCompile Include="Source\Sample\ResultUtil.cpp" />
+    <ClCompile Include="Source\Sample\Font\BitmapFont.cpp" />
+    <ClCompile Include="Source\Sample\Shape\Shape.cpp" />
+    <ClCompile Include="Source\Sample\Graphics\Texture.cpp" />
+    <ClCompile Include="Source\Sample\ExternalBuild.cpp" />
+    <ClCompile Include="Source\Sample\Shader\Shader.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Resource\Shader\FontVS.hlsl" />
+    <FxCompile Include="Resource\Shader\FontPS.hlsl" />
+    <FxCompile Include="Resource\Shader\ShapeVS.hlsl" />
+    <FxCompile Include="Resource\Shader\ShapePS.hlsl" />
+    <FxCompile Include="Resource\Shader\OutlineGS.hlsl" />
+    <FxCompile Include="Resource\Shader\OutlineVS.hlsl" />
+    <FxCompile Include="Resource\Shader\OutlinePS.hlsl" />
+  </ItemGroup>
+</Project>
