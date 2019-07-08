@@ -611,7 +611,7 @@ inline bool CreateSamplerState(
 {
     FLOAT borderColor[4] = { 0.0f };
     CD3D11_SAMPLER_DESC samplerDesc(
-        filter,       // サンプリング時に使用するフィルタ。ここでは異方性フィルターを使用する
+        filter,       // サンプリング時に使用するフィルタ。ここでは異方性フィルターを使用する(D3D11_FILTER_ANISOTROPIC)
         addressU,     // 0 ～ 1 の範囲外にある u テクスチャー座標の描画方法
         addressV,     // 0 ～ 1 の範囲外にある v テクスチャー座標
         addressW,     // 0 ～ 1 の範囲外にある w テクスチャー座標

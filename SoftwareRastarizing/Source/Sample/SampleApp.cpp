@@ -163,20 +163,94 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
-    m_Framebuffer.Clear(m_ClientSize);
-    {
-        static const glm::vec4 color1 = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
-        static const glm::vec4 color2 = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+    const static auto init_eye = glm::vec3(0.0f, 2.5f, -4.5f);
+    const static auto init_center = glm::vec3(0.0f, 1.0f, 0.0f);
+    const static auto init_d = glm::normalize(init_center - init_eye);
+    glm::mat4x4 viewMatrix = [&]() {
+        const glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-        const u32 t = u32(ImGui::GetTime()*100.f);
-        for (u32 y = 0; y < m_Framebuffer.Size.height; y++) {
-            for (u32 x = 0; x < m_Framebuffer.Size.width; x++) {
-                const u32 xx = (x + t) / 100;
-                const u32 yy = (y + t) / 100;
-                m_Framebuffer.SetPixel(x, y, (xx + yy) % 2 == 0 ? color1 : color2);
+        // Camera rotation
+        const auto forward = [&]() -> glm::vec3 {
+            static float pitch = glm::degrees(asin(init_d.y));
+            static float yaw = glm::degrees(atan2(init_d.z, init_d.x));
+            static auto prevMousePos = ImGui::GetMousePos();
+            const auto mousePos = ImGui::GetMousePos();
+            const bool rotating = ImGui::IsMouseDown(0);
+            if (rotating)
+            {
+                const float sensitivity = 0.1f;
+                const float dx = float(prevMousePos.x - mousePos.x) * sensitivity;
+                const float dy = float(prevMousePos.y - mousePos.y) * sensitivity;
+                yaw += dx;
+                pitch = glm::clamp(pitch - dy, -89.0f, 89.0f);
             }
+            prevMousePos = mousePos;
+            return glm::vec3(
+                cos(glm::radians(pitch)) * cos(glm::radians(yaw)),
+                sin(glm::radians(pitch)),
+                cos(glm::radians(pitch)) * sin(glm::radians(yaw)));
+        }();
+
+        // Camera position
+        const auto p = [&]() -> glm::vec3 {
+            static auto p = init_eye;
+            const auto w = -forward;
+            const auto u = glm::normalize(glm::cross(up, w));
+            const auto v = glm::cross(w, u);
+            const float factor = ImGui::GetIO().KeyShift ? 10.0f : 1.0f;
+            const float speed = ImGui::GetIO().DeltaTime * factor;
+            if (ImGui::IsKeyDown('W')) { p += forward * speed; }
+            if (ImGui::IsKeyDown('S')) { p -= forward * speed; }
+            if (ImGui::IsKeyDown('A')) { p -= u * speed; }
+            if (ImGui::IsKeyDown('D')) { p += u * speed; }
+            return p;
+        }();
+
+        return glm::lookAtLH(p, p + forward, up);
+    }();
+
+    m_Framebuffer.Clear(m_ClientSize);
+
+    glm::mat4x4 modelMatrix = glm::mat4x4(1.0f);
+
+    // Transformation matrix
+    //modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, -10.0f));
+    modelMatrix = glm::rotate(modelMatrix, (float)(ImGui::GetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f));
+    glm::mat4x4 projectionMatrix = glm::perspectiveLH(glm::radians(30.0f), float(m_Framebuffer.Size.width) / m_Framebuffer.Size.height, 0.1f, 10.f);
+    glm::mat4x4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
+
+    m_Scene->ForeachTriangles(
+        [&](const Scene::Triangle& triangle)
+        {
+            // 座標変換
+            glm::vec4 p1 = mvpMatrix * triangle.Vertex1.Position;
+            glm::vec4 p2 = mvpMatrix * triangle.Vertex2.Position;
+            glm::vec4 p3 = mvpMatrix * triangle.Vertex3.Position;
+
+            // Perspective Division
+            glm::vec3 p1_div = p1 / p1.w;
+            glm::vec3 p2_div = p2 / p2.w;
+            glm::vec3 p3_div = p3 / p3.w;
+
+            // ビューポート変換
+            const auto viewportTrans = [&](const glm::vec3& p) -> glm::vec2 {
+                return glm::vec2(
+                    (p.x + 1.f) * .5f * m_Framebuffer.Size.width,
+                    (p.y + 1.f) * .5f * m_Framebuffer.Size.height
+                );
+            };
+            glm::vec2 p1_w = viewportTrans(p1_div);
+            glm::vec2 p2_w = viewportTrans(p2_div);
+            glm::vec2 p3_w = viewportTrans(p3_div);
+
+            // ピクセル描画
+            const glm::vec4 color = glm::vec4(1.0f);
+            m_Framebuffer.SetPixel(static_cast<u32>(p1_w.x), static_cast<u32>(p1_w.y), color);
+            m_Framebuffer.SetPixel(static_cast<u32>(p2_w.x), static_cast<u32>(p2_w.y), color);
+            m_Framebuffer.SetPixel(static_cast<u32>(p3_w.x), static_cast<u32>(p3_w.y), color);
         }
-    }
+    );
 
     m_Visualizer->Update(
         m_Framebuffer.Size,
@@ -421,7 +495,7 @@ bool SampleApp::CreateBackBuffer(const Size2D& newSize)
 
     return Util::CreateRasterizerState(
         m_Device,
-        D3D11_CULL_FRONT,
+        D3D11_CULL_BACK,
         FALSE,
         m_RasterizerState
     );

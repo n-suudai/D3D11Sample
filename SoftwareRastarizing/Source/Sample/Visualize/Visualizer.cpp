@@ -42,12 +42,12 @@ void Visualizer::Init()
     );
 
     const std::vector<Vertex2D> vertices = {
-        Vertex2D{ glm::vec2(-1.0f, -1.0f),    glm::vec2(0.0f, 0.0f) },
-        Vertex2D{ glm::vec2(1.0f, -1.0f),     glm::vec2(1.0f, 0.0f) },
-        Vertex2D{ glm::vec2(1.0f, 1.0f),      glm::vec2(1.0f, 1.0f) },
-        Vertex2D{ glm::vec2(-1.0f, 1.0f),     glm::vec2(0.0f, 1.0f) }
+        Vertex2D{ glm::vec2(-1.0f, -1.0f),      glm::vec2(0.0f, 0.0f) },
+        Vertex2D{ glm::vec2( 1.0f, -1.0f),      glm::vec2(1.0f, 0.0f) },
+        Vertex2D{ glm::vec2( 1.0f,  1.0f),      glm::vec2(1.0f, 1.0f) },
+        Vertex2D{ glm::vec2(-1.0f,  1.0f),      glm::vec2(0.0f, 1.0f) }
     };
-    const std::vector<u16> indices = { 0, 1, 2, 0, 2, 3 };
+    const std::vector<u16> indices = { 2, 1, 0, 3, 2, 0 };
 
     // 頂点バッファ
     Util::CreateBuffer(

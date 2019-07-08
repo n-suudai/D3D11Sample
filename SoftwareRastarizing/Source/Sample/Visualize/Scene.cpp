@@ -52,13 +52,19 @@ void Scene::ForeachTriangles(std::function<void(const Triangle&)> func)
                         m_Attribute.colors[3 * i.vertex_index + 2],
                         1.0f
                     ),
-                    glm::normalize(
-                        glm::vec4(
-                            m_Attribute.normals[3 * i.normal_index + 0],
-                            m_Attribute.normals[3 * i.normal_index + 1],
-                            m_Attribute.normals[3 * i.normal_index + 2],
-                            1.0f
-                        )
+                    //glm::normalize(
+                    //    glm::vec4(
+                    //        m_Attribute.normals[3 * i.normal_index + 0],
+                    //        m_Attribute.normals[3 * i.normal_index + 1],
+                    //        m_Attribute.normals[3 * i.normal_index + 2],
+                    //        1.0f
+                    //    )
+                    //)
+                    glm::vec4(
+                        0.0f,
+                        0.0f,
+                        0.0f,
+                        1.0f
                     )
                 };
             };
