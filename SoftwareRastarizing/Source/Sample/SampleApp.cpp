@@ -135,7 +135,7 @@ bool SampleApp::Init()
     }
 
     m_Scene = std::make_unique<Scene>();
-    result = m_Scene->Load("..\\Assets\\Model\\cat\\cat.obj");
+    result = m_Scene->Load("..\\Assets\\Model\\scene\\scene.obj");
     if (!result)
     {
         ShowErrorMessage(result, "SceneLoading");
@@ -163,9 +163,88 @@ void SampleApp::Term()
 // 更新処理
 void SampleApp::Update()
 {
-    const static auto init_eye = glm::vec3(0.0f, 2.5f, -4.5f);
-    const static auto init_center = glm::vec3(0.0f, 1.0f, 0.0f);
-    const static auto init_d = glm::normalize(init_center - init_eye);
+    // Rasterize
+    const auto rasterLine = [&](Framebuffer& fb, const glm::vec2& p1, const glm::vec2& p2) {
+        int x1 = int(p1.x);
+        int y1 = int(p1.y);
+        int x2 = int(p2.x);
+        int y2 = int(p2.y);
+        bool trans = false;
+        if (abs(x2 - x1) < abs(y2 - y1)) {
+            std::swap(x1, y1);
+            std::swap(x2, y2);
+            trans = true;
+        }
+        if (x1 > x2) {
+            std::swap(x1, x2);
+            std::swap(y1, y2);
+        }
+        const int dx = x2 - x1;
+        const int dy = y2 - y1;
+        const int delta = abs(dy) * 2;
+        const int yd = dy > 0 ? 1 : -1;
+        int error = 0;
+        int y = y1;
+        for (int x = x1; x <= x2; x++) {
+            fb.SetPixel(trans ? y : x, trans ? x : y, glm::vec4(1));
+            error += delta;
+            if (error > dx) {
+                y += yd;
+                error -= dx * 2;
+            }
+        }
+    };
+
+    static glm::vec3 translate = glm::vec3(0.0f);
+    static glm::vec3 rotate = glm::vec3(0.0f);
+    static glm::vec3 scale = glm::vec3(0.3f);
+    static bool window = false;
+    static int mode = 0;
+    if (m_ImGuiActive)
+    {
+        ImGui::SetNextWindowSize(ImVec2(320, 120), ImGuiSetCond_Once);
+        ImGui::Begin("SoftwareRastarizing");
+
+        ImGui::Text("Translate");
+        ImGui::PushItemWidth(60.0f);
+        ImGui::PushID("Translate");
+        ImGui::DragFloat("X", &translate.x, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Y", &translate.y, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Z", &translate.z, 0.1f);
+        ImGui::PopID();
+        ImGui::PopItemWidth();
+
+        ImGui::Text("Rotate");
+        ImGui::PushItemWidth(60.0f);
+        ImGui::PushID("Rotate");
+        ImGui::DragFloat("X", &rotate.x, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Y", &rotate.y, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Z", &rotate.z, 0.1f);
+        ImGui::PopID();
+        ImGui::PopItemWidth();
+
+        ImGui::Text("Scale");
+        ImGui::PushItemWidth(60.0f);
+        ImGui::PushID("Scale");
+        ImGui::DragFloat("X", &scale.x, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Y", &scale.y, 0.1f); ImGui::SameLine();
+        ImGui::DragFloat("Z", &scale.z, 0.1f);
+        ImGui::PopID();
+        ImGui::PopItemWidth();
+
+        ImGui::Separator();
+
+        ImGui::RadioButton("Point",     &mode, 0); ImGui::SameLine();
+        ImGui::RadioButton("Wireframe", &mode, 1); //ImGui::SameLine();
+        //ImGui::RadioButton("Normal", &mode, 2);
+
+        ImGui::End();
+    }
+
+    const static glm::vec3 init_eye = glm::vec3(0.0f, 2.5f, -4.5f);
+    const static glm::vec3 init_center = glm::vec3(0.0f, 1.0f, 0.0f);
+    const static glm::vec3 init_d = glm::normalize(init_center - init_eye);
+
     glm::mat4x4 viewMatrix = [&]() {
         const glm::vec3 up(0.0f, 1.0f, 0.0f);
 
@@ -175,13 +254,13 @@ void SampleApp::Update()
             static float yaw = glm::degrees(atan2(init_d.z, init_d.x));
             static auto prevMousePos = ImGui::GetMousePos();
             const auto mousePos = ImGui::GetMousePos();
-            const bool rotating = ImGui::IsMouseDown(0);
+            const bool rotating = !ImGui::IsWindowHovered() && !ImGui::IsAnyItemActive() && ImGui::IsMouseDown(0);
             if (rotating)
             {
                 const float sensitivity = 0.1f;
                 const float dx = float(prevMousePos.x - mousePos.x) * sensitivity;
                 const float dy = float(prevMousePos.y - mousePos.y) * sensitivity;
-                yaw += dx;
+                yaw -= dx;
                 pitch = glm::clamp(pitch - dy, -89.0f, 89.0f);
             }
             prevMousePos = mousePos;
@@ -211,12 +290,14 @@ void SampleApp::Update()
 
     m_Framebuffer.Clear(m_ClientSize);
 
-    glm::mat4x4 modelMatrix = glm::mat4x4(1.0f);
-
     // Transformation matrix
-    //modelMatrix = glm::translate(modelMatrix, glm::vec3(0.0f, 0.0f, -10.0f));
-    modelMatrix = glm::rotate(modelMatrix, (float)(ImGui::GetTime()), glm::vec3(0.0f, 1.0f, 0.0f));
-    modelMatrix = glm::scale(modelMatrix, glm::vec3(0.005f));
+    glm::mat4x4 modelMatrix = glm::mat4x4(1.0f);
+    modelMatrix = glm::translate(modelMatrix, translate);
+    modelMatrix = glm::rotate(modelMatrix, rotate.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotate.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotate.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    modelMatrix = glm::scale(modelMatrix, scale);
+
     glm::mat4x4 projectionMatrix = glm::perspectiveLH(glm::radians(30.0f), float(m_Framebuffer.Size.width) / m_Framebuffer.Size.height, 0.1f, 10.f);
     glm::mat4x4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
 
@@ -245,10 +326,19 @@ void SampleApp::Update()
             glm::vec2 p3_w = viewportTrans(p3_div);
 
             // ピクセル描画
-            const glm::vec4 color = glm::vec4(1.0f);
-            m_Framebuffer.SetPixel(static_cast<u32>(p1_w.x), static_cast<u32>(p1_w.y), color);
-            m_Framebuffer.SetPixel(static_cast<u32>(p2_w.x), static_cast<u32>(p2_w.y), color);
-            m_Framebuffer.SetPixel(static_cast<u32>(p3_w.x), static_cast<u32>(p3_w.y), color);
+            if (mode == 0)
+            {
+                const glm::vec4 color = glm::vec4(1.0f);
+                m_Framebuffer.SetPixel(static_cast<u32>(p1_w.x), static_cast<u32>(p1_w.y), color);
+                m_Framebuffer.SetPixel(static_cast<u32>(p2_w.x), static_cast<u32>(p2_w.y), color);
+                m_Framebuffer.SetPixel(static_cast<u32>(p3_w.x), static_cast<u32>(p3_w.y), color);
+            }
+            else if (mode == 1)
+            {
+                rasterLine(m_Framebuffer, p1_w, p2_w);
+                rasterLine(m_Framebuffer, p2_w, p3_w);
+                rasterLine(m_Framebuffer, p3_w, p1_w);
+            }
         }
     );
 
@@ -260,11 +350,6 @@ void SampleApp::Update()
 
     if (m_ImGuiActive)
     {
-        ImGui::SetNextWindowSize(ImVec2(320, 120), ImGuiSetCond_Once);
-        ImGui::Begin("SoftwareRastarizing");
-
-        ImGui::End();
-
         // imgui 描画
         ImGui::Render();
     }
