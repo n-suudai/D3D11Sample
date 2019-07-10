@@ -140,6 +140,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <ForcedIncludeFiles>$(ProjectDir)Source\PCH.hpp</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>$(ProjectDir)..\External\;$(ProjectDir)..\External\glm\;$(ProjectDir)..\External\imgui\;$(ProjectDir)..\External\tinyobjloader\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -162,6 +163,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <ForcedIncludeFiles>$(ProjectDir)Source\PCH.hpp</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>$(ProjectDir)..\External\;$(ProjectDir)..\External\glm\;$(ProjectDir)..\External\imgui\;$(ProjectDir)..\External\tinyobjloader\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

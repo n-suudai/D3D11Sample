@@ -60,7 +60,7 @@ void OnMouseWheel(const Position2D& position, s32 wheelDelta, void* pUser)
 void AppMain()
 {
     IApp* pApp = nullptr;
-    Size2D clientSize = { 640, 480 };
+    Size2D clientSize = { 1280, 720 }; // 720p
 
     if (!CreateApp(clientSize, "Sample", &pApp))
     {

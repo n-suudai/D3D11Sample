@@ -31,7 +31,7 @@ ResultUtil Scene::Load(const std::string& path)
 }
 
 
-void Scene::ForeachTriangles(std::function<void(const Triangle&)> func)
+void Scene::ForeachTriangles(std::function<void(const Triangle&)> func) const
 {
     for (const auto& shape : m_Shapes)
     {

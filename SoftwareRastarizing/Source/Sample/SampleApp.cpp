@@ -160,11 +160,26 @@ void SampleApp::Term()
     TerminateImGui();
 }
 
-// 更新処理
-void SampleApp::Update()
+
+struct VaryingVertex
 {
-    // Rasterize
-    const auto rasterLine = [&](Framebuffer& fb, const glm::vec2& p1, const glm::vec2& p2) {
+    glm::vec4 position;
+    glm::vec3 normal;
+};
+using VertexShaderFunc = std::function<VaryingVertex(const Scene::Vertex& v)>;
+using FragmentShaderFunc = std::function<glm::vec4(const glm::vec3& n, const glm::vec3& p_ndc)>;
+
+void Rasterize(
+    const Scene* pScene,
+    Framebuffer& framebuffer,
+    bool wireframe,
+    bool cullbackface,
+    const VertexShaderFunc& vertexShader,
+    const FragmentShaderFunc& fragmentShader
+)
+{
+    // Bresenham's line algorithm
+    const auto rasterLine = [&](const glm::vec2& p1, const glm::vec2& p2) {
         int x1 = int(p1.x);
         int y1 = int(p1.y);
         int x2 = int(p2.x);
@@ -186,7 +201,7 @@ void SampleApp::Update()
         int error = 0;
         int y = y1;
         for (int x = x1; x <= x2; x++) {
-            fb.SetPixel(trans ? y : x, trans ? x : y, glm::vec4(1));
+            framebuffer.SetPixel(trans ? y : x, trans ? x : y, glm::vec4(1));
             error += delta;
             if (error > dx) {
                 y += yd;
@@ -195,15 +210,211 @@ void SampleApp::Update()
         }
     };
 
+    // ビューポート変換
+    const auto viewportTrans = [&](const glm::vec3& p) -> glm::vec2 {
+        return glm::vec2(
+            (p.x + 1.f) * .5f * framebuffer.Size.width,
+            (p.y + 1.f) * .5f * framebuffer.Size.height
+        );
+    };
+
+    // Rasterize a triangle
+    const auto rasterTriangle = [&](const VaryingVertex& v1, const VaryingVertex& v2, const VaryingVertex& v3) {
+        // Clip space -> NDC -> Screen space
+        const auto p1_ndc = glm::vec3(v1.position) / v1.position.w;
+        const auto p2_ndc = glm::vec3(v2.position) / v2.position.w;
+        const auto p3_ndc = glm::vec3(v3.position) / v3.position.w;
+        const auto p1 = viewportTrans(p1_ndc);
+        const auto p2 = viewportTrans(p2_ndc);
+        const auto p3 = viewportTrans(p3_ndc);
+
+        // Wireframe?
+        if (wireframe) {
+            rasterLine(p1, p2);
+            rasterLine(p2, p3);
+            rasterLine(p3, p1);
+            return;
+        }
+
+        // Bounding box in screen coordinates
+        glm::vec2 min(Inf);
+        glm::vec2 max(-Inf);
+        const auto merge = [&](const glm::vec2& p) {
+            min = glm::min(min, p);
+            max = glm::max(max, p);
+        };
+        merge(p1);
+        merge(p2);
+        merge(p3);
+        min = glm::max(min, glm::vec2(0));
+        max = glm::min(max, glm::vec2(framebuffer.Size.width - 1, framebuffer.Size.height - 1));
+
+        // Edge function (CCW)
+        const auto edgeFunc = [](const glm::vec2& a, const glm::vec2& b, const glm::vec2& c) {
+            const auto d1 = b - a;
+            const auto d2 = c - a;
+            return d1.x*d2.y - d1.y*d2.x;
+        };
+
+        // Check inside/outside tests for each pixel
+        const auto denom = edgeFunc(p1, p2, p3);
+        const bool back = denom < 0;
+        if (back && cullbackface) {
+            return;
+        }
+        for (int y = int(min.y); y <= int(max.y); y++) {
+            for (int x = int(min.x); x <= int(max.x); x++) {
+                const auto p = glm::vec2(x, y) + 0.5f;
+                auto b1 = edgeFunc(p2, p3, p);
+                auto b2 = edgeFunc(p3, p1, p);
+                auto b3 = edgeFunc(p1, p2, p);
+                const bool inside = (b1 > 0 && b2 > 0 && b3 > 0) || (b1 < 0 && b2 < 0 && b3 < 0);
+                if (!inside) {
+                    continue;
+                }
+                b1 /= denom;
+                b2 /= denom;
+                b3 /= denom;
+                const auto p_ndc = b1 * p1_ndc + b2 * p2_ndc + b3 * p3_ndc;
+                if (framebuffer.DepthBuffer[y*framebuffer.Size.width + x] < p_ndc.z) {
+                    continue;
+                }
+                framebuffer.DepthBuffer[y*framebuffer.Size.width + x] = p_ndc.z;
+                const auto n = glm::normalize(b1 / v1.position.w*v1.normal + b2 / v2.position.w*v2.normal + b3 / v3.position.w*v3.normal);
+                framebuffer.SetPixel(x, y, fragmentShader(back ? -n : n, p_ndc));
+            }
+        }
+    };
+
+    // 三角形のクリッピング処理を行う（クリップ座標系）
+    // デバイス座標系でクリッピングを行うとカメラ後方の投影が残ってしまう
+    // Sutherland-Hodgeman
+    // Clip triangle
+    const auto clipTriangle = [&](
+        const VaryingVertex& p1,
+        const VaryingVertex& p2,
+        const VaryingVertex& p3,
+        const std::function<void(
+            const VaryingVertex& v1_clipped,
+            const VaryingVertex& v2_clipped,
+            const VaryingVertex& v3_clipped)>& processClippedTriangle
+        ) {
+            // Polygon as a vector of vertices in CCW order
+            static std::vector<VaryingVertex> poly;
+            poly.clear();
+            poly.insert(poly.end(), { p1, p2, p3 });
+
+            // Perform clipping
+            const glm::vec4 clip_plane_ns[] = {
+                glm::vec4(1, 0, 0, 1),    // w=x
+                glm::vec4(-1, 0, 0, 1),    // w=-x
+                glm::vec4(0, 1, 0, 1),    // w=y
+                glm::vec4(0,-1, 0, 1),    // w=-y
+                glm::vec4(0, 0, 1, 1),    // w=z
+                glm::vec4(0, 0,-1, 1),    // w=-z
+            };
+            for (const auto& clip_plane_n : clip_plane_ns) {
+                static std::vector<VaryingVertex> outpoly;
+                outpoly.clear();
+                for (int i = 0; i < int(poly.size()); i++) {
+                    // Current edge
+                    const auto& v1 = poly[i];
+                    const auto& v2 = poly[(i + 1) % poly.size()];
+
+                    // Signed distance
+                    const auto d1 = glm::dot(v1.position, clip_plane_n);
+                    const auto d2 = glm::dot(v2.position, clip_plane_n);
+
+                    // Calculate intersection between a segment and a clip plane
+                    const auto intersect = [&]() -> VaryingVertex {
+                        const auto a = d1 / (d1 - d2);
+                        return {
+                            (1.f - a)*v1.position + a * v2.position,
+                            glm::normalize((1.f - a)*v1.normal + a * v2.normal)
+                        };
+                    };
+                    if (d1 > 0) {
+                        if (d2 > 0) {
+                            // Both inside
+                            outpoly.push_back(v2);
+                        }
+                        else {
+                            // p1: indide, p2: outside
+                            outpoly.push_back(intersect());
+                        }
+                    }
+                    else if (d2 > 0) {
+                        // p1: outside, p2: inside
+                        outpoly.push_back(intersect());
+                        outpoly.push_back(v2);
+                    }
+                }
+
+                poly = outpoly;
+            }
+
+            // Triangulate the polygon
+            if (poly.empty()) {
+                return;
+            }
+            const auto& vt1 = poly[0];
+            for (int i = 1; i < int(poly.size()) - 1; i++) {
+                const auto& vt2 = poly[i];
+                const auto& vt3 = poly[(i + 1) % poly.size()];
+                processClippedTriangle(vt1, vt2, vt3);
+            }
+    };
+
+    pScene->ForeachTriangles(
+        [&](const Scene::Triangle& triangle)
+        {
+            const auto p1 = vertexShader(triangle.Vertex1);
+            const auto p2 = vertexShader(triangle.Vertex2);
+            const auto p3 = vertexShader(triangle.Vertex3);
+
+            clipTriangle(
+                p1, p2, p3,
+                rasterTriangle
+            );
+        }
+    );
+}
+
+
+
+
+// 更新処理
+void SampleApp::Update()
+{
     static glm::vec3 translate = glm::vec3(0.0f);
     static glm::vec3 rotate = glm::vec3(0.0f);
     static glm::vec3 scale = glm::vec3(0.3f);
-    static bool window = false;
-    static int mode = 0;
+
+    static glm::vec3 lightdir = glm::normalize(glm::vec3(0.5, 0.8, 1));
+
+    enum RenderMode {
+        eWireframe,
+        eNormal,
+        eShaded,
+    };
+
+    static float fov = 35.0f;
+    static float znear = 0.1f;
+    static float zfar = 10.0f;
+    static int mode = eShaded;
+    static bool cullbackface = false;
+    static bool animate = false;
+
+
     if (m_ImGuiActive)
     {
         ImGui::SetNextWindowSize(ImVec2(320, 120), ImGuiSetCond_Once);
         ImGui::Begin("SoftwareRastarizing");
+
+        ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("Framebuffer size: (%d, %d)", m_Framebuffer.Size.width, m_Framebuffer.Size.height);
+
+        ImGui::Separator();
 
         ImGui::Text("Translate");
         ImGui::PushItemWidth(60.0f);
@@ -234,9 +445,23 @@ void SampleApp::Update()
 
         ImGui::Separator();
 
-        ImGui::RadioButton("Point",     &mode, 0); ImGui::SameLine();
-        ImGui::RadioButton("Wireframe", &mode, 1); //ImGui::SameLine();
-        //ImGui::RadioButton("Normal", &mode, 2);
+        ImGui::RadioButton("Wireframe", &mode, eWireframe); ImGui::SameLine();
+        ImGui::RadioButton("Normal",    &mode, eNormal);    ImGui::SameLine();
+        ImGui::RadioButton("Shaded",    &mode, eShaded);
+
+        ImGui::Separator();
+
+        ImGui::Checkbox("Enable animation", &animate);
+
+        ImGui::Separator();
+
+        ImGui::Checkbox("Enable backface culling", &cullbackface);
+
+        ImGui::Separator();
+
+        ImGui::DragFloat("Fov", &fov, 0.1f);
+        ImGui::DragFloat("ZNear", &znear, 0.1f);
+        ImGui::DragFloat("ZFar", &zfar, 0.1f);
 
         ImGui::End();
     }
@@ -290,6 +515,11 @@ void SampleApp::Update()
 
     m_Framebuffer.Clear(m_ClientSize);
 
+    if (animate)
+    {
+        rotate.y = ImGui::GetTime() * 0.5f;
+    }
+
     // Transformation matrix
     glm::mat4x4 modelMatrix = glm::mat4x4(1.0f);
     modelMatrix = glm::translate(modelMatrix, translate);
@@ -298,47 +528,33 @@ void SampleApp::Update()
     modelMatrix = glm::rotate(modelMatrix, rotate.z, glm::vec3(0.0f, 0.0f, 1.0f));
     modelMatrix = glm::scale(modelMatrix, scale);
 
-    glm::mat4x4 projectionMatrix = glm::perspectiveLH(glm::radians(30.0f), float(m_Framebuffer.Size.width) / m_Framebuffer.Size.height, 0.1f, 10.f);
+    glm::mat4x4 projectionMatrix = glm::perspectiveLH(glm::radians(fov), float(m_Framebuffer.Size.width) / m_Framebuffer.Size.height, znear, zfar);
     glm::mat4x4 mvpMatrix = projectionMatrix * viewMatrix * modelMatrix;
+    glm::mat3 transNormalMatrix = glm::mat3(glm::transpose(glm::inverse(modelMatrix)));
 
-    m_Scene->ForeachTriangles(
-        [&](const Scene::Triangle& triangle)
+    Rasterize(
+        m_Scene.get(),
+        m_Framebuffer,
+        mode == eWireframe,
+        cullbackface,
+        [&](const Scene::Vertex& v) -> VaryingVertex
         {
-            // 座標変換
-            glm::vec4 p1 = mvpMatrix * triangle.Vertex1.Position;
-            glm::vec4 p2 = mvpMatrix * triangle.Vertex2.Position;
-            glm::vec4 p3 = mvpMatrix * triangle.Vertex3.Position;
-
-            // Perspective Division
-            glm::vec3 p1_div = p1 / p1.w;
-            glm::vec3 p2_div = p2 / p2.w;
-            glm::vec3 p3_div = p3 / p3.w;
-
-            // ビューポート変換
-            const auto viewportTrans = [&](const glm::vec3& p) -> glm::vec2 {
-                return glm::vec2(
-                    (p.x + 1.f) * .5f * m_Framebuffer.Size.width,
-                    (p.y + 1.f) * .5f * m_Framebuffer.Size.height
-                );
+            return {
+                mvpMatrix * v.Position, transNormalMatrix * v.Normal
             };
-            glm::vec2 p1_w = viewportTrans(p1_div);
-            glm::vec2 p2_w = viewportTrans(p2_div);
-            glm::vec2 p3_w = viewportTrans(p3_div);
-
-            // ピクセル描画
-            if (mode == 0)
+        },
+        [&](const glm::vec3& n, const glm::vec3& p_ndc) -> glm::vec4
+        {
+            p_ndc;
+            if (mode == eNormal)
             {
-                const glm::vec4 color = glm::vec4(1.0f);
-                m_Framebuffer.SetPixel(static_cast<u32>(p1_w.x), static_cast<u32>(p1_w.y), color);
-                m_Framebuffer.SetPixel(static_cast<u32>(p2_w.x), static_cast<u32>(p2_w.y), color);
-                m_Framebuffer.SetPixel(static_cast<u32>(p3_w.x), static_cast<u32>(p3_w.y), color);
+                return glm::abs(glm::vec4(n, 1.0f));
             }
-            else if (mode == 1)
+            else if (mode == eShaded)
             {
-                rasterLine(m_Framebuffer, p1_w, p2_w);
-                rasterLine(m_Framebuffer, p2_w, p3_w);
-                rasterLine(m_Framebuffer, p3_w, p1_w);
+                return glm::vec4(glm::vec3(0.2f + 0.8f*glm::max(0.f, glm::dot(n, lightdir))), 1.0f);
             }
+            return glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
         }
     );
 

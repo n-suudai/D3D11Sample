@@ -1,10 +1,15 @@
 ﻿#pragma once
 
 
+constexpr float Inf = 1e+8f;
+constexpr float Eps = 1e-4f;
+
+
 struct Framebuffer
 {
     Size2D          Size;
     std::vector<u8> Buffer;
+    std::vector<f32> DepthBuffer;
 
     void Clear(const Size2D& size)
     {
@@ -14,6 +19,7 @@ struct Framebuffer
         }
 
         Buffer.assign(Size.width * Size.height * 4, 0);
+        DepthBuffer.assign(Size.width * Size.height * 4, Inf);
     }
 
     void SetPixel(u32 x, u32 y, const glm::vec4& color)

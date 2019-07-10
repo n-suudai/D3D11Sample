@@ -20,7 +20,7 @@ public:
 
     ResultUtil Load(const std::string& path);
 
-    void ForeachTriangles(std::function<void(const Triangle&)> func);
+    void ForeachTriangles(std::function<void(const Triangle&)> func) const;
 
 protected:
     tinyobj::attrib_t                m_Attribute;
