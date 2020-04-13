@@ -8,6 +8,9 @@
 #pragma comment(lib, "dxguid.lib")
 
 
+#define DUSE_MSAA 1
+
+
 SampleApp::SampleApp(IApp* pApp)
     : m_pApp(pApp)
     , m_BufferCount(2)
@@ -78,13 +81,13 @@ bool SampleApp::Init()
 
     // スワップチェインを生成
     {
-#if 0
+#if DUSE_MSAA // マルチサンプル有効な場合キャプチャに失敗する？
         // 使用可能なMSAAを取得
         ZeroMemory(&m_SampleDesc, sizeof(m_SampleDesc));
         for (int i = 1; i <= D3D11_MAX_MULTISAMPLE_SAMPLE_COUNT; i <<= 1)
         {
             UINT Quality;
-            if (SUCCEEDED(m_Device->CheckMultisampleQualityLevels(DXGI_FORMAT_D24_UNORM_S8_UINT, i, &Quality)))
+            if (SUCCEEDED(m_Device->CheckMultisampleQualityLevels(m_BufferFormat, i, &Quality)))
             {
                 if (0 < Quality)
                 {
@@ -345,9 +348,19 @@ void SampleApp::Render()
     {
         // CPU読み込み可能バッファにGPU上でデータをコピー
         {
+#if DUSE_MSAA
+            // 解決処理
+            m_Context->ResolveSubresource(
+                m_ResolveBuffer.Get(), 0,
+                m_BackBuffer.Get(), 0,
+                m_BufferFormat
+            );
+            m_Context->CopyResource(m_CaptureBuffer.Get(), m_ResolveBuffer.Get());
+#else
             ComPtr<ID3D11Resource> resource;
             m_RenderTargetView->GetResource(&resource);
             m_Context->CopyResource(m_CaptureBuffer.Get(), resource.Get());
+#endif            
         }
         
         {
@@ -441,34 +454,56 @@ bool SampleApp::CreateBackBuffer(const Size2D& newSize)
 
     // レンダーターゲットを生成
     {
-        ComPtr<ID3D11Texture2D> backbuffer;
-        result = m_SwapChain->GetBuffer(0, IID_PPV_ARGS(&backbuffer));
+        result = m_SwapChain->GetBuffer(0, IID_PPV_ARGS(&m_BackBuffer));
         if (!result)
         {
             ShowErrorMessage(result, "m_SwapChain->GetBuffer");
             return false;
         }
 
-        // キャプチャ用バッファを作成
-        D3D11_TEXTURE2D_DESC captureDesc = {};
-        backbuffer->GetDesc(&captureDesc); // バックバッファの設定をコピー
-        captureDesc.ArraySize = 1;
-        captureDesc.BindFlags = 0;
-        captureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ; // CPU読み取り可能
-        captureDesc.Usage = D3D11_USAGE_STAGING; // GPUコピー用として使用？
-        captureDesc.MipLevels = 1;
-        captureDesc.MiscFlags = 0;
-        captureDesc.SampleDesc.Count = 1;
-        captureDesc.SampleDesc.Quality = 0;
-        result = m_Device->CreateTexture2D(&captureDesc, nullptr, &m_CaptureBuffer);
-        if (!result)
+#if DUSE_MSAA
+        // 解決用バッファ
         {
-            ShowErrorMessage(result, "m_Device->CreateTexture2D");
-            return false;
+            D3D11_TEXTURE2D_DESC resolveDesc = {};
+            m_BackBuffer->GetDesc(&resolveDesc); // バックバッファの設定をコピー
+            resolveDesc.ArraySize = 1;
+            resolveDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE; // 一応 ShaderResource として使用できるように
+            resolveDesc.MipLevels = 1;
+            resolveDesc.MiscFlags = 0;
+            resolveDesc.SampleDesc.Count = 1;
+            resolveDesc.SampleDesc.Quality = 0;
+            resolveDesc.Usage = D3D11_USAGE_DEFAULT;
+            result = m_Device->CreateTexture2D(&resolveDesc, nullptr, &m_ResolveBuffer);
+            if (!result)
+            {
+                ShowErrorMessage(result, "m_Device->CreateTexture2D");
+                return false;
+            }
+        }
+#endif
+
+        // キャプチャ用バッファを作成
+        {
+            D3D11_TEXTURE2D_DESC captureDesc = {};
+            m_BackBuffer->GetDesc(&captureDesc); // バックバッファの設定をコピー
+            captureDesc.ArraySize = 1;
+            captureDesc.BindFlags = 0;
+            captureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ; // CPU読み取り可能
+            captureDesc.MipLevels = 1;
+            captureDesc.MiscFlags = 0;
+            captureDesc.SampleDesc.Count = 1;
+            captureDesc.SampleDesc.Quality = 0;
+            captureDesc.Usage = D3D11_USAGE_STAGING; // GPUコピー用として使用？
+            result = m_Device->CreateTexture2D(&captureDesc, nullptr, &m_CaptureBuffer);
+            if (!result)
+            {
+                ShowErrorMessage(result, "m_Device->CreateTexture2D");
+                return false;
+            }
         }
 
         result = m_Device->CreateRenderTargetView(
-            backbuffer.Get(),
+            m_BackBuffer.Get(),
             nullptr,
             &m_RenderTargetView
         );

@@ -69,6 +69,8 @@ private:
     ComPtr<ID3D11DeviceContext>    m_Context;
     ComPtr<ID3D11RenderTargetView> m_RenderTargetView;
     ComPtr<ID3D11DepthStencilView> m_DepthStencilView;
+    ComPtr<ID3D11Texture2D> m_BackBuffer;
+    ComPtr<ID3D11Texture2D> m_ResolveBuffer;
     ComPtr<ID3D11Texture2D> m_CaptureBuffer;
 
     ComPtr<ID3D11Texture2D> m_DepthStencilTexture;
