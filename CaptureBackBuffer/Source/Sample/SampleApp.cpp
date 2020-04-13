@@ -81,7 +81,7 @@ bool SampleApp::Init()
 
     // スワップチェインを生成
     {
-#if DUSE_MSAA // マルチサンプル有効な場合キャプチャに失敗する？
+#if DUSE_MSAA
         // 使用可能なMSAAを取得
         ZeroMemory(&m_SampleDesc, sizeof(m_SampleDesc));
         for (int i = 1; i <= D3D11_MAX_MULTISAMPLE_SAMPLE_COUNT; i <<= 1)
@@ -348,7 +348,7 @@ void SampleApp::Render()
     {
         // CPU読み込み可能バッファにGPU上でデータをコピー
         {
-#if DUSE_MSAA
+#if DUSE_MSAA // マルチサンプル有効な場合、解決処理が必要
             // 解決処理
             m_Context->ResolveSubresource(
                 m_ResolveBuffer.Get(), 0,
@@ -461,7 +461,7 @@ bool SampleApp::CreateBackBuffer(const Size2D& newSize)
             return false;
         }
 
-#if DUSE_MSAA
+#if DUSE_MSAA // マルチサンプル有効な場合、解決処理が必要
         // 解決用バッファ
         {
             D3D11_TEXTURE2D_DESC resolveDesc = {};

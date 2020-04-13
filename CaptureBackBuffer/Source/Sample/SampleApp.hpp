@@ -70,8 +70,8 @@ private:
     ComPtr<ID3D11RenderTargetView> m_RenderTargetView;
     ComPtr<ID3D11DepthStencilView> m_DepthStencilView;
     ComPtr<ID3D11Texture2D> m_BackBuffer;
-    ComPtr<ID3D11Texture2D> m_ResolveBuffer;
-    ComPtr<ID3D11Texture2D> m_CaptureBuffer;
+    ComPtr<ID3D11Texture2D> m_ResolveBuffer; // マルチサンプル解決用バッファ https://blog.techlab-xe.net/directx11%E3%81%A7msaa/
+    ComPtr<ID3D11Texture2D> m_CaptureBuffer; // キャプチャ用バッファ
 
     ComPtr<ID3D11Texture2D> m_DepthStencilTexture;
     ComPtr<ID3D11DepthStencilState> m_DepthStencilState;
